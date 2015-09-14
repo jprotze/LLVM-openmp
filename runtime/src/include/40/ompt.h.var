@@ -173,22 +173,7 @@
     macro (ompt_event_destroy_lock,             ompt_wait_callback_t,          59) /* lock destruction */       \
     macro (ompt_event_destroy_nest_lock,        ompt_wait_callback_t,          60) /* nest lock destruction */  \
                                                                                                                 \
-    macro (ompt_event_flush,                    ompt_callback_t,               61) /* after executing flush */  \
-                                                                                                                \
-    macro (ompt_event_target_begin,             ompt_new_target_callback_t,    62) /* target begin */           \
-    macro (ompt_event_target_end,               ompt_target_callback_t,        63) /* target end */             \
-                                                                                                                \
-    macro (ompt_event_target_data_begin,        ompt_new_target_callback_t,    64) /* target data begin */      \
-    macro (ompt_event_target_data_end,          ompt_target_callback_t,        65) /* target data end */        \
-                                                                                                                \
-    macro (ompt_event_target_update_begin,      ompt_new_target_callback_t,    66) /* target update begin */    \
-    macro (ompt_event_target_update_end,        ompt_target_callback_t,        67) /* target update end */      \
-                                                                                                                \
-    macro (ompt_event_data_map_begin,           ompt_new_data_map_callback_t,  68) /* before data mapping  */   \
-    macro (ompt_event_data_map_end,             ompt_data_map_callback_t,      69) /* after data mapping */     \
-                                                                                                                \
-    macro (ompt_event_target_invoke_begin,      ompt_new_target_callback_t,    70) /* before invoking the target */ \
-    macro (ompt_event_target_invoke_end,        ompt_target_callback_t,        71) /* after invoking the target */
+    macro (ompt_event_flush,                    ompt_callback_t,               61) /* after executing flush */
 
 
 
@@ -211,32 +196,6 @@ typedef uint64_t ompt_parallel_id_t;
 
 typedef uint64_t ompt_wait_id_t;
 #define ompt_wait_id_none ((ompt_wait_id_t) 0)         /* non-standard */
-
-/* Adittional (experimental) identifiers for 4.0 */
-typedef uint64_t ompt_target_id_t;
-typedef uint64_t ompt_target_device_id_t;
-typedef uint64_t ompt_data_map_id_t;
-typedef uint64_t ompt_data_size_t;
-
-/*typedef union { 
-    struct{
-        uint8_t in  : 1;
-        uint8_t out : 1;
-    };
-    uint8_t bits;
-} ompt_target_data_map_t; //TODO: Really use this ugly typedef as map type?*/
-
-typedef enum {
-    ompt_data_map_INVALID   = 0,
-    ompt_data_map_IN        = 1,
-    ompt_data_map_OUT       = 2,
-    ompt_data_map_INOUT     = 3,
-} ompt_data_map_t;
-
-typedef enum{
-    ompt_data_sync  = 0,
-    ompt_data_async = 1,
-} ompt_target_sync_t;
 
 
 /*---------------------
@@ -375,35 +334,6 @@ typedef void (*ompt_control_callback_t) (
 );
 
 typedef void (*ompt_callback_t)(void);
-
-/* Additional (experimental) signatures to support 4.0 */
-typedef void (*ompt_new_target_callback_t) (        /* for new target* region                 */
-    ompt_task_id_t task_id,                         /* ID of task                             */
-    ompt_target_id_t target_id,                     /* ID of target region                    */
-    ompt_target_device_id_t device_id,              /* ID of the device executing this region */
-    void *target_function                           /* pointer to outlined function           */
-);
-
-typedef void (*ompt_target_callback_t) (            /* for target* region                     */
-    ompt_task_id_t task_id,                         /* ID of task                             */
-    ompt_target_id_t target_id                      /* ID of target* region                   */
-);
-
-typedef void (*ompt_new_data_map_callback_t) (      /* for start of a data map operation      */
-    ompt_task_id_t task_id,                         /* ID of task                             */
-    ompt_target_id_t target_id,                     /* ID of target* region                   */
-    ompt_data_map_id_t data_map_id,                 /* ID of data map operation               */
-    ompt_target_device_id_t device_id,              /* ID of the device                       */
-    ompt_target_sync_t sync_type,                   /* sync or asynchronus data map           */
-    ompt_data_map_t map_type,                       /* type of the data mapping               */
-    ompt_data_size_t bytes                          /* amount of mapped bytes                 */
-);
-
-typedef void (*ompt_data_map_callback_t) (          /* for a data map operation               */
-    ompt_task_id_t task_id,                         /* ID of task                             */
-    ompt_target_id_t target_id,                     /* ID of target* region                   */
-    ompt_data_map_id_t data_map_id                  /* ID of data map operation               */
-);
 
 
 /****************************************************************************

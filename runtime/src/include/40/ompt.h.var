@@ -31,9 +31,7 @@
     macro (ompt_get_parallel_id)        \
     macro (ompt_get_parallel_team_size) \
     macro (ompt_get_task_id)            \
-    macro (ompt_get_thread_id)          \
-    macro (ompt_target_trace_start)     \
-    macro (ompt_target_trace_stop)
+    macro (ompt_get_thread_id)
 
 #define FOREACH_OMPT_PLACEHOLDER_FN(macro)  \
     macro (ompt_idle)                       \
@@ -451,124 +449,6 @@ typedef enum ompt_set_callback_rc_e {  /* non-standard */
 OMPT_API_FUNCTION(int, ompt_get_callback, (
     ompt_event_t event,
     ompt_callback_t *callback
-));
-
-
-
-/****************************************************************************
- * TARGET DEVICE TRACING (EXPERIMENTAL)
- ***************************************************************************/
-
-/* OMPT record type */
-typedef enum {
-    ompt_record_ompt,
-    ompt_record_native,
-    ompt_record_notype
-} ompt_record_type_t;
-
-/* target record types */
-typedef struct
-{
-    ompt_thread_id_t thread_id;      /* ID of thread                  */
-} ompt_record_thread_t;
-
-typedef struct
-{
-    ompt_thread_type_t thread_type;  /* type of thread               */
-    ompt_thread_id_t thread_id;      /* ID of thread                 */
-} ompt_record_thread_type_t;
-
-typedef struct {
-    ompt_wait_id_t wait_id;          /* wait ID                      */
-} ompt_record_wait_t;
-
-typedef struct
-{
-    ompt_parallel_id_t parallel_id;  /* ID of parallel region */
-    ompt_task_id_t task_id;          /* ID of task */
-} ompt_record_parallel_t;
-
-typedef struct
-{
-    ompt_parallel_id_t parallel_id;  /* ID of parallel region */
-    ompt_task_id_t task_id;          /* ID of task */
-    void *workshare_function;        /* pointer to outlined function */
-} ompt_record_new_workshare_t;
-
-typedef struct
-{
-    ompt_task_id_t parent_task_id;   /* ID of parent task */
-    ompt_frame_t *parent_task_frame; /* frame data of parent task */
-    ompt_parallel_id_t parallel_id;  /* ID of parallel region */
-    uint32_t requested_team_size;    /* requested number of threads */
-    void *parallel_function;         /* pointer to outlined function */
-} ompt_record_new_parallel_t;
-
-typedef struct
-{
-    ompt_task_id_t task_id; /* ID of task */
-} ompt_record_task_t;
-
-typedef struct
-{
-    ompt_task_id_t suspended_task_id; /* ID of suspended task */
-    ompt_task_id_t resumed_task_id;   /* ID of resumed task */
-} ompt_record_task_switch_t;
-
-typedef struct
-{
-    ompt_task_id_t parent_task_id;   /* ID of parent task */
-    ompt_frame_t *parent_task_frame; /* frame data of parent task */
-    ompt_task_id_t new_task_id;      /* ID of created task */
-    void *new_task_function;         /* pointer to outlined function */
-} ompt_record_new_task_t;
-
-// TODO: add target records, as they are allowed on a target device
-
-/* OMPT record */
-typedef struct
-{
-    ompt_event_t type;                           /* event type */
-    uint64_t time;                               /* time, when the record occured */
-    ompt_thread_id_t thread_id;                  /* thread identifier for this record */
-    union
-    {
-          ompt_record_thread_t thread;               /* for thread          */
-          ompt_record_thread_type_t thread_type;     /* for thread type     */
-          ompt_record_wait_t wait;                   /* for wait            */
-          ompt_record_parallel_t parallel;           /* for inside parallel */
-          ompt_record_new_workshare_t new_workshare; /* for workshares      */
-          ompt_record_new_parallel_t new_parallel;   /* for new parallel    */
-          ompt_record_task_t task;                   /* for tasks           */
-          ompt_record_task_switch_t task_switch;     /* for task switch     */
-          ompt_record_new_task_t new_task;           /* for new tasks       */
-          /* there might be additional implementation-specific types listed here */
-    } record;
-} ompt_record_t;
-
-/* buffer management routines */
-typedef void (*ompt_target_buffer_request_callback_t) (
-    ompt_record_t** buffer,   /* pointer to host memory to store target records */
-    size_t* bytes                   /* buffer size in bytes */
-);
-
-typedef void (*ompt_target_buffer_complete_callback_t) (
-    ompt_record_t* buffer,   /* pointer to buffer with target event records */
-    ompt_target_device_id_t device, /* target device */
-    size_t valid_bytes             /* number of valid bytes in the buffer */
-);
-
-/* target tracing start / end */
-OMPT_API_FUNCTION(int, ompt_target_trace_start, (
-    int device_id,
-    /* pointer to buffer request callback */
-    ompt_target_buffer_request_callback_t request,
-    /* pointer to buffer complete callback */
-    ompt_target_buffer_complete_callback_t complete
-));
-
-OMPT_API_FUNCTION(int, ompt_target_trace_stop, (
-    int device_id
 ));
 
 

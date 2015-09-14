@@ -16,6 +16,7 @@
 #ifndef KMP_OS_H
 #define KMP_OS_H
 
+#include "kmp_config.h"
 #include <stdlib.h>
 
 #define KMP_FTN_PLAIN   1
@@ -61,8 +62,6 @@
 #else
 # error Unknown compiler
 #endif
-
-#include "kmp_platform.h"
 
 #if (KMP_OS_LINUX || KMP_OS_WINDOWS) && !KMP_OS_CNK && !KMP_ARCH_PPC64
 # define KMP_AFFINITY_SUPPORTED 1
@@ -279,22 +278,6 @@ extern "C" {
 # define KMP_ALIGN_CACHE      __declspec( align(CACHE_LINE) )
 # define KMP_ALIGN_CACHE_INTERNODE      __declspec( align(INTERNODE_CACHE_LINE) )
 # define KMP_ALIGN(bytes)     __declspec( align(bytes) )
-#endif
-
-#if defined(__MIC__) || defined(__MIC2__)
-    #define KMP_MIC  1
-// Intel(R) Composer XE (13.0) defines both __MIC__ and __MIC2__ !
-# if __MIC2__ || __KNC__
-    #define KMP_MIC1 0
-    #define KMP_MIC2 1
-# else
-    #define KMP_MIC1 1
-    #define KMP_MIC2 0
-# endif
-#else
-    #define KMP_MIC  0
-    #define KMP_MIC1 0
-    #define KMP_MIC2 0
 #endif
 
 /* General purpose fence types for memory operations */

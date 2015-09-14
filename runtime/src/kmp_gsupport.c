@@ -522,8 +522,7 @@ xexpand(KMP_API_NAME_GOMP_PARALLEL_END)(void)
     }
 #endif
 
-    if (! __kmp_threads[gtid]->th.th_team->t.t_serialized) {
-        kmp_info_t *thr = __kmp_threads[gtid];
+    if (! thr->th.th_team->t.t_serialized) {
         __kmp_run_after_invoked_task(gtid, __kmp_tid_from_gtid(gtid), thr,
           thr->th.th_team);
 
@@ -536,8 +535,11 @@ xexpand(KMP_API_NAME_GOMP_PARALLEL_END)(void)
         }
 #endif
 
-        __kmp_join_call(&loc, gtid, fork_context_gnu);
-
+        __kmp_join_call(&loc, gtid
+#if OMPT_SUPPORT
+            , fork_context_gnu
+#endif
+        );
 #if OMPT_SUPPORT
         if (ompt_status & ompt_status_track) {
           ompt_frame->reenter_runtime_frame = NULL;

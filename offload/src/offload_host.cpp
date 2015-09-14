@@ -2091,7 +2091,7 @@ bool OffloadDescriptor::offload(
 
 
 #if OMPT_SUPPORT
-   ompt_target_device_id_t device_id;
+   int device_id;
    ompt_task_id_t task_id;
    int i;
    bool is_update = false;
@@ -2552,7 +2552,7 @@ bool OffloadDescriptor::send_pointer_data(bool is_async)
 
     #ifdef OMPT_SUPPORT
     //ompt_data_map_id_t data_map_id;
-    ompt_target_device_id_t device_id;
+    int device_id;
     ompt_task_id_t task_id;
     uint32_t mapping_flags = 0;
 
@@ -3151,7 +3151,7 @@ bool OffloadDescriptor::compute()
 
 #if 0
 #if OMPT_SUPPORT
-    ompt_target_device_id_t device_id;
+    int device_id;
     ompt_task_id_t task_id;
     if (ompt_enabled()) {
      
@@ -3349,7 +3349,7 @@ bool OffloadDescriptor::receive_pointer_data(bool is_async)
 
      #ifdef OMPT_SUPPORT
      //ompt_data_map_id_t data_map_id;
-     ompt_target_device_id_t device_id;
+     int device_id;
      ompt_task_id_t task_id;
      uint32_t mapping_flags = 0;
  

@@ -17,6 +17,8 @@
 #ifndef KMP_H
 #define KMP_H
 
+#include "kmp_config.h"
+
 /* #define BUILD_PARALLEL_ORDERED 1 */
 
 /* This fix replaces gettimeofday with clock_gettime for better scalability on
@@ -1678,7 +1680,7 @@ union KMP_ALIGN_CACHE kmp_barrier_team_union {
     double       b_align;        /* use worst case alignment */
     char         b_pad[ CACHE_LINE ];
     struct {
-        kmp_uint     b_arrived;       /* STATE => task reached synch point. */
+        kmp_uint64   b_arrived;       /* STATE => task reached synch point. */
 #if USE_DEBUGGER
         // The following two fields are indended for the debugger solely. Only master of the team accesses
         // these fields: the first one is increased by 1 when master arrives to a barrier, the
@@ -2982,6 +2984,7 @@ extern int __kmp_aux_get_affinity_mask_proc(int proc, void **mask);
 extern void __kmp_balanced_affinity( int tid, int team_size );
 #endif /* KMP_AFFINITY_SUPPORTED */
 
+extern void __kmp_cleanup_hierarchy();
 extern void __kmp_get_hierarchy(kmp_uint32 nproc, kmp_bstate_t *thr_bar);
 
 #if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM || KMP_ARCH_AARCH64)
@@ -3100,7 +3103,10 @@ extern int __kmp_fork_call( ident_t *loc, int gtid, enum fork_context_e fork_con
 #endif
                              );
 
-extern void __kmp_join_call( ident_t *loc, int gtid, enum fork_context_e fork_context
+extern void __kmp_join_call( ident_t *loc, int gtid
+#if OMPT_SUPPORT
+                           , enum fork_context_e fork_context
+#endif
 #if OMP_40_ENABLED
                            , int exit_teams = 0
 #endif

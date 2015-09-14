@@ -875,24 +875,6 @@ __kmp_reserve_threads( kmp_root_t *root, kmp_team_t *parent_team,
     KMP_DEBUG_ASSERT( root && parent_team );
 
     //
-    // Initial check to see if we should use a serialized team.
-    //
-    if ( set_nthreads == 1 ) {
-        KC_TRACE( 10, ( "__kmp_reserve_threads: T#%d reserving 1 thread; requested %d threads\n",
-                        __kmp_get_gtid(), set_nthreads ));
-        return 1;
-    }
-    if ( ( !get__nested_2(parent_team,master_tid) && (root->r.r_in_parallel
-#if OMP_40_ENABLED
-       && !enter_teams
-#endif /* OMP_40_ENABLED */
-       ) ) || ( __kmp_library == library_serial ) ) {
-        KC_TRACE( 10, ( "__kmp_reserve_threads: T#%d serializing team; requested %d threads\n",
-                        __kmp_get_gtid(), set_nthreads ));
-        return 1;
-    }
-
-    //
     // If dyn-var is set, dynamically adjust the number of desired threads,
     // according to the method specified by dynamic_mode.
     //
@@ -1120,7 +1102,7 @@ __kmp_fork_team_threads( kmp_root_t *root, kmp_team_t *team,
             KMP_DEBUG_ASSERT( thr );
             KMP_DEBUG_ASSERT( thr->th.th_team == team );
             /* align team and thread arrived states */
-            KA_TRACE( 20, ("__kmp_fork_team_threads: T#%d(%d:%d) init arrived T#%d(%d:%d) join =%u, plain=%u\n",
+            KA_TRACE( 20, ("__kmp_fork_team_threads: T#%d(%d:%d) init arrived T#%d(%d:%d) join =%llu, plain=%llu\n",
                             __kmp_gtid_from_tid( 0, team ), team->t.t_id, 0,
                             __kmp_gtid_from_tid( i, team ), team->t.t_id, i,
                             team->t.t_bar[ bs_forkjoin_barrier ].b_arrived,
@@ -1720,23 +1702,47 @@ __kmp_fork_call(
     }
 #endif
 
-    /* determine how many new threads we can use */
-    __kmp_acquire_bootstrap_lock( &__kmp_forkjoin_lock );
-
     if ( parent_team->t.t_active_level >= master_th->th.th_current_task->td_icvs.max_active_levels ) {
         nthreads = 1;
     } else {
+#if OMP_40_ENABLED
+        int enter_teams = ((ap==NULL && active_level==0)||(ap && teams_level>0 && teams_level==level));
+#endif
         nthreads = master_set_numthreads ?
             master_set_numthreads : get__nproc_2( parent_team, master_tid ); // TODO: get nproc directly from current task
-        nthreads = __kmp_reserve_threads(root, parent_team, master_tid, nthreads
+
+        // Check if we need to take forkjoin lock? (no need for serialized parallel out of teams construct).
+        // This code moved here from __kmp_reserve_threads() to speedup nested serialized parallels.
+        if (nthreads > 1) {
+            if ( ( !get__nested(master_th) && (root->r.r_in_parallel
+#if OMP_40_ENABLED
+                && !enter_teams
+#endif /* OMP_40_ENABLED */
+            ) ) || ( __kmp_library == library_serial ) ) {
+                KC_TRACE( 10, ( "__kmp_fork_call: T#%d serializing team; requested %d threads\n",
+                                gtid, nthreads ));
+                nthreads = 1;
+            }
+        }
+        if ( nthreads > 1 ) {
+            /* determine how many new threads we can use */
+            __kmp_acquire_bootstrap_lock( &__kmp_forkjoin_lock );
+
+            nthreads = __kmp_reserve_threads(root, parent_team, master_tid, nthreads
 #if OMP_40_ENABLED
 /* AC: If we execute teams from parallel region (on host), then teams should be created
    but each can only have 1 thread if nesting is disabled. If teams called from serial region,
    then teams and their threads should be created regardless of the nesting setting. */
-                                         , ((ap==NULL && active_level==0) ||
-                                            (ap && teams_level>0 && teams_level==level))
+                                         , enter_teams
 #endif /* OMP_40_ENABLED */
                                          );
+            if ( nthreads == 1 ) {
+                // Free lock for single thread execution here;
+                // for multi-thread execution it will be freed later
+                // after team of threads created and initialized
+                __kmp_release_bootstrap_lock( &__kmp_forkjoin_lock );
+            }
+        }
     }
     KMP_DEBUG_ASSERT( nthreads > 0 );
 
@@ -1753,7 +1759,6 @@ __kmp_fork_call(
         void * * args = (void**) KMP_ALLOCA( argc * sizeof( void * ) );
 #endif /* KMP_OS_LINUX && ( KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM || KMP_ARCH_AARCH64) */
 
-        __kmp_release_bootstrap_lock( &__kmp_forkjoin_lock );
         KA_TRACE( 20, ("__kmp_fork_call: T#%d serializing parallel region\n", gtid ));
 
         __kmpc_serialized_parallel(loc, gtid);
@@ -2277,7 +2282,10 @@ __kmp_join_ompt(
 #endif
 
 void
-__kmp_join_call(ident_t *loc, int gtid, enum fork_context_e fork_context
+__kmp_join_call(ident_t *loc, int gtid
+#if OMPT_SUPPORT
+               , enum fork_context_e fork_context
+#endif
 #if OMP_40_ENABLED
                , int exit_teams
 #endif /* OMP_40_ENABLED */
@@ -3978,8 +3986,13 @@ __kmp_unregister_root_current_thread( int gtid )
    kmp_task_team_t *   task_team = thread->th.th_task_team;
 
    // we need to wait for the proxy tasks before finishing the thread
-   if ( task_team != NULL && task_team->tt.tt_found_proxy_tasks )
+   if ( task_team != NULL && task_team->tt.tt_found_proxy_tasks ) {
+#if OMPT_SUPPORT
+        // the runtime is shutting down so we won't report any events
+        thread->th.ompt_thread_info.state = ompt_state_undefined;
+#endif
         __kmp_task_team_wait(thread, team, NULL );
+   }
 #endif
 
     __kmp_reset_root(gtid, root);
@@ -4865,7 +4878,8 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
 
 #if OMP_40_ENABLED
 # if KMP_AFFINITY_SUPPORTED
-            if ( team->t.t_proc_bind == new_proc_bind ) {
+            if ( ( team->t.t_size_changed == 0 )
+              && ( team->t.t_proc_bind == new_proc_bind ) ) {
                 KA_TRACE( 200, ("__kmp_allocate_team: reusing hot team #%d bindings: proc_bind = %d, partition = [%d,%d]\n",
                   team->t.t_id, new_proc_bind, team->t.t_first_place,
                   team->t.t_last_place ) );
@@ -5040,9 +5054,8 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
                 kmp_info_t * new_worker = __kmp_allocate_thread( root, team, f );
                 KMP_DEBUG_ASSERT( new_worker );
                 team->t.t_threads[ f ] = new_worker;
-                new_worker->th.th_team_nproc = team->t.t_nproc;
 
-                KA_TRACE( 20, ("__kmp_allocate_team: team %d init T#%d arrived: join=%u, plain=%u\n",
+                KA_TRACE( 20, ("__kmp_allocate_team: team %d init T#%d arrived: join=%llu, plain=%llu\n",
                                 team->t.t_id, __kmp_gtid_from_tid( f, team ), team->t.t_id, f,
                                 team->t.t_bar[bs_forkjoin_barrier].b_arrived,
                                 team->t.t_bar[bs_plain_barrier].b_arrived ) );
@@ -6978,7 +6991,11 @@ __kmp_teams_master( int gtid )
     
     // AC: last parameter "1" eliminates join barrier which won't work because
     // worker threads are in a fork barrier waiting for more parallel regions
-    __kmp_join_call( loc, gtid, fork_context_intel, 1 ); 
+    __kmp_join_call( loc, gtid
+#if OMPT_SUPPORT
+        , fork_context_intel
+#endif
+        , 1 ); 
 }
 
 int
@@ -7274,6 +7291,7 @@ __kmp_cleanup( void )
 #if KMP_AFFINITY_SUPPORTED
         __kmp_affinity_uninitialize();
 #endif /* KMP_AFFINITY_SUPPORTED */
+        __kmp_cleanup_hierarchy();
         TCW_4(__kmp_init_middle, FALSE);
     }
 
@@ -7640,7 +7658,9 @@ __kmp_determine_reduction_method( ident_t *loc, kmp_int32 global_tid,
 
     // KMP_FORCE_REDUCTION
 
-    if( __kmp_force_reduction_method != reduction_method_not_defined ) {
+    // If the team is serialized (team_size == 1), ignore the forced reduction
+    // method and stay with the unsynchronized method (empty_reduce_block)
+    if( __kmp_force_reduction_method != reduction_method_not_defined && team_size != 1) {
 
         PACKED_REDUCTION_METHOD_T forced_retval;
 
@@ -7650,9 +7670,6 @@ __kmp_determine_reduction_method( ident_t *loc, kmp_int32 global_tid,
         {
             case critical_reduce_block:
                 KMP_ASSERT( lck );              // lck should be != 0
-                if( team_size <= 1 ) {
-                    forced_retval = empty_reduce_block;
-                }
                 break;
 
             case atomic_reduce_block:

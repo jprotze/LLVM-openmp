@@ -6376,6 +6376,11 @@ __kmp_do_serial_initialize( void )
     int i, gtid;
     int size;
 
+#if OMPT_SUPPORT
+    ompt_pre_init();
+#endif
+
+
     KA_TRACE( 10, ("__kmp_do_serial_initialize: enter\n" ) );
 
     KMP_DEBUG_ASSERT( sizeof( kmp_int32 ) == 4 );
@@ -6625,7 +6630,7 @@ __kmp_do_serial_initialize( void )
 
     KA_TRACE( 10, ("__kmp_do_serial_initialize: exit\n" ) );
 #if OMPT_SUPPORT
-    ompt_init();
+    ompt_post_init();
 #endif
 }
 
@@ -6761,6 +6766,10 @@ __kmp_do_middle_initialize( void )
 void
 __kmp_middle_initialize( void )
 {
+#if OMPT_SUPPORT
+    ompt_pre_init();
+#endif
+
     if ( __kmp_init_middle ) {
         return;
     }
@@ -6772,7 +6781,7 @@ __kmp_middle_initialize( void )
     __kmp_do_middle_initialize();
     __kmp_release_bootstrap_lock( &__kmp_initz_lock );
 #if OMPT_SUPPORT
-    ompt_init();
+    ompt_post_init();
 #endif
 }
 
@@ -6780,6 +6789,10 @@ void
 __kmp_parallel_initialize( void )
 {
     int gtid = __kmp_entry_gtid();      // this might be a new root
+
+#if OMPT_SUPPORT
+    ompt_pre_init();
+#endif
 
     /* syncronize parallel initialization (for sibling) */
     if( TCR_4(__kmp_init_parallel) ) return;
@@ -6844,7 +6857,7 @@ __kmp_parallel_initialize( void )
 
     __kmp_release_bootstrap_lock( &__kmp_initz_lock );
 #if OMPT_SUPPORT
-    ompt_init();
+    ompt_post_init();
 #endif
 }
 

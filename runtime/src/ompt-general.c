@@ -44,6 +44,21 @@ typedef struct {
 } ompt_state_info_t;
 
 
+enum tool_setting_e {
+    omp_tool_error,
+    omp_tool_unset,
+    omp_tool_disabled,
+    omp_tool_enabled
+};
+
+
+typedef void (*ompt_initialize_fn_t) (
+  ompt_function_lookup_t ompt_fn_lookup, 
+  const char *version,
+  unsigned int ompt_version
+);
+
+
 
 /*****************************************************************************
  * global variables
@@ -58,8 +73,9 @@ ompt_state_info_t ompt_state_info[] = {
 #undef ompt_state_macro
 };
 
-
 ompt_callbacks_t ompt_callbacks;
+
+static ompt_initialize_fn_t  ompt_initialize_fn = NULL;
 
 
 
@@ -69,6 +85,116 @@ ompt_callbacks_t ompt_callbacks;
 
 static ompt_interface_fn_t ompt_fn_lookup(const char *s);
 
+
+
+/*****************************************************************************
+ * initialization and finalization (private operations)
+ ****************************************************************************/
+
+_OMP_EXTERN __attribute__ (( weak ))
+ompt_initialize_fn_t ompt_tool()
+{
+    return NULL;
+}
+
+
+#if 0
+_OMP_EXTERN __attribute__ (( weak ))
+int ompt_initialize(ompt_function_lookup_t ompt_fn_lookup, const char *version,
+                    unsigned int ompt_version)
+{
+    return no_tool_present;
+}
+#endif
+
+
+void ompt_pre_init()
+{
+    //--------------------------------------------------
+    // Execute the pre-initialization logic only once.
+    //--------------------------------------------------
+    static int ompt_pre_initialized = 0;
+
+    if (ompt_pre_initialized) return;
+
+    ompt_pre_initialized = 1;
+
+
+    //--------------------------------------------------
+    // Use a tool iff a tool available and enabled.
+    //--------------------------------------------------
+    const char *ompt_env_var = getenv("OMP_TOOL");
+    tool_setting_e tool_setting = omp_tool_error;
+
+    if (!ompt_env_var  || !strcmp(ompt_env_var, ""))
+        tool_setting = omp_tool_unset;
+    else if (!strcasecmp(ompt_env_var, "disabled"))
+        tool_setting = omp_tool_disabled;
+    else if (!strcasecmp(ompt_env_var, "enabled"))
+        tool_setting = omp_tool_enabled;
+
+    switch(tool_setting) {
+    case omp_tool_disabled:
+        ompt_status = ompt_status_disabled;
+        break;
+
+    case omp_tool_unset:
+    case omp_tool_enabled:
+        ompt_initialize_fn = ompt_tool();
+	if (ompt_initialize_fn) {
+          ompt_status = ompt_status_track_callback;
+        }
+        break;
+
+    case omp_tool_error:
+        fprintf(stderr,
+            "Warning: OMP_TOOL has invalid value \"%s\".\n"
+            "  legal values are (NULL,\"\",\"disabled\","
+            "\"enabled\").\n", ompt_env_var);
+        break;
+    }
+
+}
+
+
+void ompt_post_init()
+{
+    //--------------------------------------------------
+    // Execute the post-initialization logic only once.
+    //--------------------------------------------------
+    static int ompt_post_initialized = 0;
+
+    if (ompt_post_initialized) return;
+
+    ompt_post_initialized = 1;
+
+          
+    //--------------------------------------------------
+    // Initialize the tool if so indicated.
+    //--------------------------------------------------
+    if (ompt_status == ompt_status_track_callback) {
+        const char *runtime_version = __ompt_get_runtime_version_internal();
+        ompt_initialize_fn(ompt_fn_lookup, runtime_version, OMPT_VERSION);
+        __ompt_init_internal();
+    }
+}
+
+
+void ompt_fini()
+{
+    if (ompt_status == ompt_status_track_callback) {
+        if (ompt_callbacks.ompt_callback(ompt_event_runtime_shutdown)) {
+            ompt_callbacks.ompt_callback(ompt_event_runtime_shutdown)();
+        }
+    }
+
+    ompt_status = ompt_status_disabled;
+}
+
+
+/*****************************************************************************
+ * interface operations
+ ****************************************************************************/
 
 /*****************************************************************************
  * state
@@ -140,85 +266,6 @@ OMPT_API_ROUTINE int ompt_get_callback(ompt_event_t evid, ompt_callback_t *cb)
     default: return ompt_get_callback_failure;
     }
 }
-
-
-
-/*****************************************************************************
- * intialization/finalization
- ****************************************************************************/
-
-_OMP_EXTERN __attribute__ (( weak ))
-int ompt_initialize(ompt_function_lookup_t ompt_fn_lookup, const char *version,
-                    unsigned int ompt_version)
-{
-    return no_tool_present;
-}
-
-enum tool_setting_e {
-    omp_tool_error,
-    omp_tool_unset,
-    omp_tool_disabled,
-    omp_tool_enabled
-};
-
-void ompt_init()
-{
-    static int ompt_initialized = 0;
-
-    if (ompt_initialized) return;
-
-    const char *ompt_env_var = getenv("OMP_TOOL");
-    tool_setting_e tool_setting = omp_tool_error;
-
-    if (!ompt_env_var  || !strcmp(ompt_env_var, ""))
-        tool_setting = omp_tool_unset;
-    else if (!strcmp(ompt_env_var, "disabled"))
-        tool_setting = omp_tool_disabled;
-    else if (!strcmp(ompt_env_var, "enabled"))
-        tool_setting = omp_tool_enabled;
-
-    switch(tool_setting) {
-    case omp_tool_disabled:
-        ompt_status = ompt_status_disabled;
-        break;
-
-    case omp_tool_unset:
-    case omp_tool_enabled:
-    {
-        const char *runtime_version = __ompt_get_runtime_version_internal();
-        int ompt_init_val =
-            ompt_initialize(ompt_fn_lookup, runtime_version, OMPT_VERSION);
-
-        if (ompt_init_val) {
-            ompt_status = ompt_status_track_callback;
-            __ompt_init_internal();
-        }
-        break;
-    }
-
-    case omp_tool_error:
-        fprintf(stderr,
-            "Warning: OMP_TOOL has invalid value \"%s\".\n"
-            "  legal values are (NULL,\"\",\"disabled\","
-            "\"enabled\").\n", ompt_env_var);
-        break;
-    }
-
-    ompt_initialized = 1;
-}
-
-
-void ompt_fini()
-{
-    if (ompt_status == ompt_status_track_callback) {
-        if (ompt_callbacks.ompt_callback(ompt_event_runtime_shutdown)) {
-            ompt_callbacks.ompt_callback(ompt_event_runtime_shutdown)();
-        }
-    }
-
-    ompt_status = ompt_status_disabled;
-}
-
 
 
 /*****************************************************************************

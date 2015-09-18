@@ -205,6 +205,8 @@ typedef uint64_t ompt_thread_id_t;
 typedef uint64_t ompt_task_id_t;
 #define ompt_task_id_none ((ompt_task_id_t) 0)         /* non-standard */
 
+typedef uint64_t ompt_dev_activity_id_t; /* ID of an activity on a device */
+
 typedef uint64_t ompt_parallel_id_t;
 #define ompt_parallel_id_none ((ompt_parallel_id_t) 0) /* non-standard */
 
@@ -592,9 +594,7 @@ typedef struct
     ompt_event_t type;                           /* event type */
     uint64_t time;                               /* time, when the record occured */
     ompt_thread_id_t thread_id;                  /* thread identifier for this record */
-    uint64_t correlation_id;                     /* link back to its associated context
-                                                    this can be a target task id,
-                                                    a parent task id or something else */
+    ompt_dev_activity_id_t dev_task_id;          /* link back to its host context */
     union
     {
           ompt_record_thread_t thread;               /* for thread          */

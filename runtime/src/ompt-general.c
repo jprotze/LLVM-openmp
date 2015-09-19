@@ -85,6 +85,8 @@ static ompt_initialize_fn_t  ompt_initialize_fn = NULL;
 
 static ompt_interface_fn_t ompt_fn_lookup(const char *s);
 
+OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void);
+
 
 
 /*****************************************************************************
@@ -98,16 +100,6 @@ ompt_initialize_fn_t ompt_tool()
 }
 
 
-#if 0
-_OMP_EXTERN __attribute__ (( weak ))
-int ompt_initialize(ompt_function_lookup_t ompt_fn_lookup, const char *version,
-                    unsigned int ompt_version)
-{
-    return no_tool_present;
-}
-#endif
-
-
 void ompt_pre_init()
 {
     //--------------------------------------------------
@@ -118,7 +110,6 @@ void ompt_pre_init()
     if (ompt_pre_initialized) return;
 
     ompt_pre_initialized = 1;
-
 
     //--------------------------------------------------
     // Use a tool iff a tool available and enabled.
@@ -168,14 +159,23 @@ void ompt_post_init()
 
     ompt_post_initialized = 1;
 
-          
     //--------------------------------------------------
     // Initialize the tool if so indicated.
     //--------------------------------------------------
     if (ompt_status == ompt_status_track_callback) {
-        const char *runtime_version = __ompt_get_runtime_version_internal();
-        ompt_initialize_fn(ompt_fn_lookup, runtime_version, OMPT_VERSION);
-        __ompt_init_internal();
+        ompt_initialize_fn(ompt_fn_lookup, ompt_get_runtime_version(), 
+                           OMPT_VERSION);
+
+        ompt_thread_t *root_thread = ompt_get_thread();
+
+        ompt_set_thread_state(root_thread, ompt_state_overhead);
+
+        if (ompt_callbacks.ompt_callback(ompt_event_thread_begin)) {
+            ompt_callbacks.ompt_callback(ompt_event_thread_begin)
+                (ompt_thread_initial, ompt_get_thread_id());
+        }
+
+        ompt_set_thread_state(root_thread, ompt_state_work_serial);
     }
 }
 

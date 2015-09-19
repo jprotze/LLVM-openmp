@@ -52,7 +52,7 @@ enum tool_setting_e {
 };
 
 
-typedef void (*ompt_initialize_fn_t) (
+typedef void (*ompt_initialize_t) (
   ompt_function_lookup_t ompt_fn_lookup, 
   const char *version,
   unsigned int ompt_version
@@ -75,7 +75,7 @@ ompt_state_info_t ompt_state_info[] = {
 
 ompt_callbacks_t ompt_callbacks;
 
-static ompt_initialize_fn_t  ompt_initialize_fn = NULL;
+static ompt_initialize_t  ompt_initialize_fn = NULL;
 
 
 
@@ -94,7 +94,7 @@ OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void);
  ****************************************************************************/
 
 _OMP_EXTERN __attribute__ (( weak ))
-ompt_initialize_fn_t ompt_tool()
+ompt_initialize_t ompt_tool()
 {
     return NULL;
 }

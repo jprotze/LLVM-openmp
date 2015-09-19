@@ -6380,7 +6380,6 @@ __kmp_do_serial_initialize( void )
     ompt_pre_init();
 #endif
 
-
     KA_TRACE( 10, ("__kmp_do_serial_initialize: enter\n" ) );
 
     KMP_DEBUG_ASSERT( sizeof( kmp_int32 ) == 4 );

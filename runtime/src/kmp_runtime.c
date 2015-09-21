@@ -2353,9 +2353,11 @@ __kmp_join_call(ident_t *loc, int gtid
         //     But there is barrier for external team (league).
         __kmp_internal_join( loc, gtid, team );
     }
+#if OMP_40_ENABLED
     else {
         master_th->th.th_task_state = 0; // AC: no tasking in teams (out of any parallel)
     }
+#endif /* OMP_40_ENABLED */
 
     KMP_MB();
 
@@ -6366,10 +6368,6 @@ __kmp_do_serial_initialize( void )
     int i, gtid;
     int size;
 
-#if OMPT_SUPPORT
-    ompt_pre_init();
-#endif
-
     KA_TRACE( 10, ("__kmp_do_serial_initialize: enter\n" ) );
 
     KMP_DEBUG_ASSERT( sizeof( kmp_int32 ) == 4 );
@@ -6377,6 +6375,10 @@ __kmp_do_serial_initialize( void )
     KMP_DEBUG_ASSERT( sizeof( kmp_int64 ) == 8 );
     KMP_DEBUG_ASSERT( sizeof( kmp_uint64 ) == 8 );
     KMP_DEBUG_ASSERT( sizeof( kmp_intptr_t ) == sizeof( void * ) );
+
+#if OMPT_SUPPORT
+    ompt_pre_init();
+#endif
 
     __kmp_validate_locks();
 
@@ -6615,12 +6617,13 @@ __kmp_do_serial_initialize( void )
     }
 #endif // OMP_40_ENABLED
 
-    KMP_MB();
-
-    KA_TRACE( 10, ("__kmp_do_serial_initialize: exit\n" ) );
 #if OMPT_SUPPORT
     ompt_post_init();
 #endif
+
+    KMP_MB();
+
+    KA_TRACE( 10, ("__kmp_do_serial_initialize: exit\n" ) );
 }
 
 void
@@ -6755,10 +6758,6 @@ __kmp_do_middle_initialize( void )
 void
 __kmp_middle_initialize( void )
 {
-#if OMPT_SUPPORT
-    ompt_pre_init();
-#endif
-
     if ( __kmp_init_middle ) {
         return;
     }
@@ -6769,9 +6768,6 @@ __kmp_middle_initialize( void )
     }
     __kmp_do_middle_initialize();
     __kmp_release_bootstrap_lock( &__kmp_initz_lock );
-#if OMPT_SUPPORT
-    ompt_post_init();
-#endif
 }
 
 void
@@ -6779,11 +6775,7 @@ __kmp_parallel_initialize( void )
 {
     int gtid = __kmp_entry_gtid();      // this might be a new root
 
-#if OMPT_SUPPORT
-    ompt_pre_init();
-#endif
-
-    /* syncronize parallel initialization (for sibling) */
+    /* synchronize parallel initialization (for sibling) */
     if( TCR_4(__kmp_init_parallel) ) return;
     __kmp_acquire_bootstrap_lock( &__kmp_initz_lock );
     if( TCR_4(__kmp_init_parallel) ) { __kmp_release_bootstrap_lock( &__kmp_initz_lock ); return; }
@@ -6845,9 +6837,6 @@ __kmp_parallel_initialize( void )
     KA_TRACE( 10, ("__kmp_parallel_initialize: exit\n" ) );
 
     __kmp_release_bootstrap_lock( &__kmp_initz_lock );
-#if OMPT_SUPPORT
-    ompt_post_init();
-#endif
 }
 
 
@@ -7601,7 +7590,7 @@ __kmp_determine_reduction_method( ident_t *loc, kmp_int32 global_tid,
 
         #if KMP_ARCH_X86_64 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64
 
-            #if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_WINDOWS || KMP_OS_DARWIN
+            #if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD || KMP_OS_WINDOWS || KMP_OS_DARWIN
 
 	    int teamsize_cutoff = 4;
 
@@ -7623,7 +7612,7 @@ __kmp_determine_reduction_method( ident_t *loc, kmp_int32 global_tid,
                 }
             #else
                 #error "Unknown or unsupported OS"
-            #endif // KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_WINDOWS || KMP_OS_DARWIN
+            #endif // KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD || KMP_OS_WINDOWS || KMP_OS_DARWIN
 
         #elif KMP_ARCH_X86 || KMP_ARCH_ARM || KMP_ARCH_AARCH
 

@@ -53,9 +53,9 @@ enum tool_setting_e {
 
 
 typedef void (*ompt_initialize_t) (
-  ompt_function_lookup_t ompt_fn_lookup, 
-  const char *version,
-  unsigned int ompt_version
+    ompt_function_lookup_t ompt_fn_lookup, 
+    const char *version,
+    unsigned int ompt_version
 );
 
 
@@ -111,7 +111,7 @@ void ompt_pre_init()
     ompt_pre_initialized = 1;
 
     //--------------------------------------------------
-    // Use a tool iff a tool available and enabled.
+    // Use a tool iff a tool is enabled and available.
     //--------------------------------------------------
     const char *ompt_env_var = getenv("OMP_TOOL");
     tool_setting_e tool_setting = omp_tool_error;
@@ -130,8 +130,8 @@ void ompt_pre_init()
     case omp_tool_unset:
     case omp_tool_enabled:
         ompt_initialize_fn = ompt_tool();
-	if (ompt_initialize_fn) {
-          ompt_enabled = 1;
+        if (ompt_initialize_fn) {
+            ompt_enabled = 1;
         }
         break;
 

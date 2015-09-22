@@ -61,8 +61,4 @@ ompt_get_task_callback(ompt_event_t evid)
     return (ompt_task_callback_t) __ompt_get_target_callback(evid);
 }
 
-ompt_task_id_t __ompt_target_task_id_new();
-
-//ompt_data_map_id_t __ompt_data_map_id_new();
-
 #endif

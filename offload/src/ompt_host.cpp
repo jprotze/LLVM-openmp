@@ -18,27 +18,3 @@ void __ompt_target_initialize()
                                &__ompt_get_target_callback);
     }
 }
-
-
-static inline uint64_t increment_id(uint64_t *ptr)
-{
-#ifndef TARGET_WINNT
-    return __sync_fetch_and_add(ptr, 1);
-#else // TARGET_WINNT
-    return _InterlockedIncrement(ptr);
-#endif // TARGET_WINNT
-}
-
-ompt_task_id_t __ompt_target_task_id_new()
-{
-    static uint64_t ompt_target_task_id = 1;
-    return increment_id(&ompt_target_task_id);
-}
-
-#if 0
-ompt_data_map_id_t __ompt_data_map_id_new()
-{
-    static uint64_t ompt_data_map_id = 1;
-    return increment_id(&ompt_data_map_id);
-}
-#endif

@@ -85,8 +85,9 @@ static ompt_initialize_t  ompt_initialize_fn = NULL;
 static ompt_interface_fn_t ompt_fn_lookup(const char *s);
 
 OMPT_API_ROUTINE ompt_task_id_t ompt_get_task_id(int depth);
-OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void);
+OMPT_API_ROUTINE ompt_frame_t *ompt_get_task_frame(int depth);
 
+OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void);
 
 
 /*****************************************************************************
@@ -101,9 +102,10 @@ ompt_initialize_t ompt_tool()
 
 
 _OMP_EXTERN void
-ompt_target_initialize(ompt_get_task_id_t *ompt_get_task_id_p,
-                       ompt_enabled_t *ompt_enabled_p,
-                       ompt_get_target_callback_t *ompt_get_target_callback_p)
+ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
+                       ompt_get_target_callback_t *ompt_get_target_callback_p,
+                       ompt_get_task_id_t *ompt_get_task_id_p,
+                       ompt_get_task_frame_t *ompt_get_task_frame_p)
 {
     static int ompt_target_init = 0;
 
@@ -111,13 +113,14 @@ ompt_target_initialize(ompt_get_task_id_t *ompt_get_task_id_p,
     assert(!ompt_target_init);
     ompt_target_init = 1;
 
-    // initialize the runtime (initial thread and call to ompt_tool)
+    // initialize the runtime (initial thread and call to ompt_initialize)
     __kmp_serial_initialize();
 
     // set pointers
-    *ompt_get_task_id_p = &ompt_get_task_id;
     *ompt_enabled_p = &__ompt_enabled;
     *ompt_get_target_callback_p = &__ompt_get_target_callback;
+    *ompt_get_task_id_p = &ompt_get_task_id;
+    *ompt_get_task_frame_p = &ompt_get_task_frame;
 }
 
 

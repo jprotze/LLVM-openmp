@@ -2109,7 +2109,7 @@ bool OffloadDescriptor::offload(
      if (ompt_get_new_target_task_callback(ompt_event_target_task_begin) && !is_empty ) {
        // parent_task_id
        task_id = ompt_get_task_id(1);
-       ompt_frame_t *parent_task_frame = 0; // FIXME
+       ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
        // has implicit task
        target_task_id = ompt_get_task_id(0);
 
@@ -2154,7 +2154,7 @@ bool OffloadDescriptor::offload(
        } else {
          // update done in own target task
          task_id = ompt_get_task_id(1);
-         ompt_frame_t *parent_task_frame = 0; // FIXME
+         ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
          target_task_id = ompt_get_task_id(0);
 
          if (ompt_get_new_target_task_callback(ompt_event_target_task_begin)) {

@@ -2091,8 +2091,11 @@ bool OffloadDescriptor::offload(
 
 
 #if OMPT_SUPPORT
-   int device_id;
+   // task id of surrounding task
    ompt_task_id_t task_id;
+   // task id of implicit target task if any
+   ompt_task_id_t target_task_id = 0;
+   int device_id = m_device.get_logical_index();
    int i;
    bool is_update = false;
    bool is_target_data_begin = false;
@@ -2103,11 +2106,10 @@ bool OffloadDescriptor::offload(
    ompt_target_info_t& target_info = m_device.get_target_info();
 
    if (ompt_enabled()) {
+     task_id = ompt_get_task_id(0);
      
      if (ompt_get_new_target_task_callback(ompt_event_target_task_begin) && !is_empty ) {
        target_task_id = __ompt_target_task_id_new();
-       device_id = m_device.get_logical_index();
-       task_id = ompt_get_task_id(0);
        ompt_get_new_target_task_callback(ompt_event_target_task_begin)(task_id,
                                        0, // FIXME
                                        target_task_id,
@@ -2118,10 +2120,6 @@ bool OffloadDescriptor::offload(
      if ( (ompt_get_new_target_task_callback(ompt_event_target_update_begin) ||
            ompt_get_new_target_data_callback(ompt_event_target_data_begin) ) &&
            is_empty ) {
-       target_task_id = __ompt_target_task_id_new();
-       device_id = m_device.get_logical_index();
-       task_id = ompt_get_task_id(0);
-
        // We assume that we have an update region if one of
        // the variables neither is allocated nor freed.
        // If one of the one of the variables is allocated
@@ -2152,19 +2150,18 @@ bool OffloadDescriptor::offload(
            }
          }
        } else {
-         if(ompt_get_new_target_task_callback(ompt_event_target_update_begin)) {
-           // update done in own target task
-           target_task_id = __ompt_target_task_id_new();
-           if (ompt_get_new_target_task_callback(ompt_event_target_task_begin)) {
-               device_id = m_device.get_logical_index();
-               task_id = ompt_get_task_id(0);
-               ompt_get_new_target_task_callback(ompt_event_target_task_begin)(task_id,
-                                               0, // FIXME
-                                               target_task_id,
-                                               device_id,
-                                               0); //FIXME
-           }
+         // update done in own target task
+         target_task_id = __ompt_target_task_id_new();
 
+         if (ompt_get_new_target_task_callback(ompt_event_target_task_begin)) {
+           ompt_get_new_target_task_callback(ompt_event_target_task_begin)(task_id,
+                                           0, // FIXME
+                                           target_task_id,
+                                           device_id,
+                                           0); //FIXME
+         }
+
+         if(ompt_get_new_target_task_callback(ompt_event_target_update_begin)) {
            ompt_get_new_target_task_callback(ompt_event_target_update_begin)(task_id,
                                            0, // FIXME
                                            target_task_id,
@@ -2274,11 +2271,6 @@ bool OffloadDescriptor::offload(
 #if OMPT_SUPPORT
    if (ompt_enabled()) {
 
-     // target end
-     if (ompt_get_task_callback(ompt_event_target_task_end) && !is_empty) {
-       ompt_get_task_callback(ompt_event_target_task_end)(task_id);
-     }
-
      // Set this thread local variable to 0, because the next call might be a target update
      target_info.is_target_data = 0;
 
@@ -2294,13 +2286,14 @@ bool OffloadDescriptor::offload(
          }
        } else {
          if(ompt_get_task_callback(ompt_event_target_update_end)) {
-           ompt_get_task_callback(ompt_event_target_update_end)(0); // FIXME: target task id needed here
-
-           if(ompt_get_task_callback(ompt_event_target_task_end)) {
-             ompt_get_task_callback(ompt_event_target_task_end)(task_id);
-           }
+           ompt_get_task_callback(ompt_event_target_update_end)(target_task_id);
          }
        }
+     }
+
+     // target task end
+     if (target_task_id && ompt_get_task_callback(ompt_event_target_task_end)) {
+       ompt_get_task_callback(ompt_event_target_task_end)(target_task_id);
      }
    }
 #endif

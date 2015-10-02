@@ -138,8 +138,27 @@ set_target_properties(omp PROPERTIES
   PREFIX "" SUFFIX "" OUTPUT_NAME "${LIBOMP_LIB_FILE}"
   LINK_FLAGS "${LIBOMP_CONFIGURED_LDFLAGS}"
   LINKER_LANGUAGE ${LIBOMP_LINKER_LANGUAGE}
-  SKIP_BUILD_RPATH true # have Mac linker -install_name just be "-install_name libomp.dylib"
 )
+
+# Get the library's location within the build tree for the unit tester
+get_target_property(LIBOMP_LIBRARY_DIR omp LIBRARY_OUTPUT_DIRECTORY)
+if(NOT LIBOMP_LIBRARY_DIR)
+  set(LIBOMP_LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  set(LIBOMP_LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR} PARENT_SCOPE)
+else()
+  set(LIBOMP_LIBRARY_DIR ${LIBOMP_LIBRARY_DIR} PARENT_SCOPE)
+endif()
+
+# Add symbolic links to libomp
+if(NOT WIN32)
+  add_custom_command(TARGET omp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${LIBOMP_LIB_FILE}
+      libgomp${CMAKE_SHARED_LIBRARY_SUFFIX}
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${LIBOMP_LIB_FILE}
+      libiomp5${CMAKE_SHARED_LIBRARY_SUFFIX}
+    WORKING_DIRECTORY ${LIBOMP_LIBRARY_DIR}
+  )
+endif()
 
 # Linking command will include libraries in LIBOMP_CONFIGURED_LIBFLAGS
 libomp_get_libflags(LIBOMP_CONFIGURED_LIBFLAGS)
@@ -189,7 +208,6 @@ if(WIN32)
   set_target_properties(ompimp PROPERTIES
     PREFIX "" SUFFIX "" OUTPUT_NAME "${LIBOMP_IMP_LIB_FILE}"
     LINKER_LANGUAGE C
-    SKIP_BUILD_RPATH true
   )
   add_dependencies(ompimp omp) # ensure generated import library is created first
 

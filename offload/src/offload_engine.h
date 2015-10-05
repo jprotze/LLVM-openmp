@@ -407,6 +407,7 @@ private:
     {
 #ifdef OMPT_SUPPORT
         target_info.is_target_data = 1;
+        target_info.tracing = 0;
 #endif
     }
 

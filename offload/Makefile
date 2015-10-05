@@ -73,10 +73,11 @@ myo_dir=$(mpss_dir)/opt/intel/mic/myo
 src_liboffload_common=dv_util.cpp liboffload_error.c liboffload_msg.c offload_common.cpp offload_table.cpp offload_trace.cpp offload_util.cpp
 
 src_liboffload_host=$(src_liboffload_common) cean_util.cpp coi/coi_client.cpp compiler_if_host.cpp offload_engine.cpp offload_env.cpp offload_host.cpp offload_omp_host.cpp offload_timer_host.cpp offload_orsl.cpp orsl-lite/lib/orsl-lite.c offload_myo_host.cpp
-src_liboffload_host+=ompt_host.cpp
+src_liboffload_host+=ompt_host.cpp ompt_buffer_host.cpp
 src_liboffload_host:=$(foreach file,$(src_liboffload_host),$(source_dir)/$(file))
 
 src_liboffload_target=$(src_liboffload_common) coi/coi_server.cpp compiler_if_target.cpp offload_omp_target.cpp offload_target.cpp offload_timer_target.cpp offload_myo_target.cpp
+src_liboffload_target+=ompt_buffer_target.cpp
 src_liboffload_target:=$(foreach file,$(src_liboffload_target),$(source_dir)/$(file))
 
 src_ofld=ofldbegin.cpp ofldend.cpp

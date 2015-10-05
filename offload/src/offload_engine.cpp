@@ -170,6 +170,40 @@ void Engine::fini_process(bool verbose)
         // destroy target process
         OFFLOAD_DEBUG_TRACE(2, "Destroying process on the device %d\n",
                             m_index);
+        
+#ifdef OMPT_SUPPORT
+        if (target_info.tracing) {
+            // look for non-empty buffers and perform an explicit
+            // pull before shutdown of device runtime
+            COIRESULT result = COI::BufferRead(
+                target_info.buffer_pos,
+                0,
+                &target_info.pos,
+                240 * sizeof(uint64_t),
+                COI_COPY_USE_DMA,
+                0, NULL,
+                COI_EVENT_SYNC);
+        
+            for (int i=0; i < 240; i++) {
+                if (target_info.pos[i] != 0) {
+
+                    COIRESULT result = COI::BufferRead(
+                            target_info.buffers[i],
+                            0,
+                            target_info.host_ptrs[i],
+                            target_info.pos[i] * sizeof(ompt_record_t),
+                            COI_COPY_USE_DMA,
+                            0, NULL,
+                            COI_EVENT_SYNC);
+
+                    target_info.complete_callback(
+                            target_info.host_ptrs[i],
+                            m_index,
+                            target_info.pos[i] * sizeof(ompt_record_t));
+                }
+            }
+        }
+#endif
 
         COIRESULT res = COI::ProcessDestroy(m_process, -1, 0, &ret, &sig);
         m_process = 0;

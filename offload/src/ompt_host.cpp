@@ -1,5 +1,7 @@
 #include "offload_util.h"
+#include "offload_host.h"
 #include "ompt_host.h"
+#include "ompt_buffer_host.h"
 
 ompt_get_task_id_t ompt_get_task_id;
 ompt_enabled_t ompt_enabled;
@@ -37,21 +39,20 @@ ompt_task_id_t __ompt_target_task_id_new()
     return increment_id(&ompt_target_task_id);
 }
 
-#if 0
-ompt_data_map_id_t __ompt_data_map_id_new()
-{
-    static uint64_t ompt_data_map_id = 1;
-    return increment_id(&ompt_data_map_id);
-}
-#endif
-
 int __ompt_recording_start(
         int device_id,
         ompt_target_buffer_request_callback_t request,
         ompt_target_buffer_complete_callback_t complete) {
+    // get corresponding engine
+    Engine& engine = mic_engines[device_id % mic_engines_total];
+    ompt_target_info_t& target_info = engine.get_target_info();
+    target_info.request_callback = request;
+    target_info.complete_callback = complete;
+    __ompt_target_start_tracing(device_id);
     return 0;
 }
 
 int __ompt_recording_stop(int device_id) {
+    __ompt_target_stop_tracing(device_id);
     return 0;
 }

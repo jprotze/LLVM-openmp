@@ -1801,6 +1801,13 @@ __kmpc_init_lock( ident_t * loc, kmp_int32 gtid,  void ** user_lock ) {
     INIT_LOCK( lck );
     __kmp_set_user_lock_location( lck, loc );
 
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_init_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_init_lock)((uint64_t) lck);
+    }
+#endif
+
 #if USE_ITT_BUILD
     __kmp_itt_lock_creating( lck );
 #endif /* USE_ITT_BUILD */

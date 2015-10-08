@@ -133,7 +133,7 @@
 #define ompt_event_acquired_atomic_implemented          ompt_event_MAY_ALWAYS_TRACE
 #define ompt_event_acquired_ordered_implemented         ompt_event_MAY_ALWAYS_TRACE
 
-#define ompt_event_init_lock_implemented                ompt_event_UNIMPLEMENTED
+#define ompt_event_init_lock_implemented                ompt_event_MAY_ALWAYS_TRACE
 #define ompt_event_init_nest_lock_implemented           ompt_event_UNIMPLEMENTED
 
 #define ompt_event_destroy_lock_implemented             ompt_event_UNIMPLEMENTED

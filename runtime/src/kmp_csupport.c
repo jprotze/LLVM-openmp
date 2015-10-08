@@ -2041,6 +2041,13 @@ __kmpc_set_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     __kmp_itt_lock_acquired( lck );
 #endif /* USE_ITT_BUILD */
 
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)((uint64_t) lck);
+    }
+#endif
+
 #endif // KMP_USE_DYNAMIC_LOCK
 }
 

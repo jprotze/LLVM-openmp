@@ -1877,6 +1877,13 @@ __kmpc_init_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     INIT_NESTED_LOCK( lck );
     __kmp_set_user_lock_location( lck, loc );
 
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_init_nest_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_init_nest_lock)((uint64_t) lck);
+    }
+#endif
+
 #if USE_ITT_BUILD
     __kmp_itt_lock_creating( lck );
 #endif /* USE_ITT_BUILD */
@@ -1972,6 +1979,13 @@ __kmpc_destroy_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     else {
         lck = __kmp_lookup_user_lock( user_lock, "omp_destroy_nest_lock" );
     }
+
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_destroy_nest_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_destroy_nest_lock)((uint64_t) lck);
+    }
+#endif
 
 #if USE_ITT_BUILD
     __kmp_itt_lock_destroyed( lck );

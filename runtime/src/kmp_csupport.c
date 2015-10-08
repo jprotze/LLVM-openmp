@@ -1915,6 +1915,13 @@ __kmpc_destroy_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
         lck = __kmp_lookup_user_lock( user_lock, "omp_destroy_lock" );
     }
 
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_destroy_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_destroy_lock)((uint64_t) lck);
+    }
+#endif
+
 #if USE_ITT_BUILD
     __kmp_itt_lock_destroyed( lck );
 #endif /* USE_ITT_BUILD */

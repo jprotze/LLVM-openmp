@@ -127,8 +127,8 @@
 #define ompt_event_wait_ordered_implemented             ompt_event_MAY_ALWAYS_TRACE
 
 #define ompt_event_acquired_lock_implemented            ompt_event_MAY_ALWAYS_TRACE
-#define ompt_event_acquired_nest_lock_first_implemented ompt_event_UNIMPLEMENTED
-#define ompt_event_acquired_nest_lock_next_implemented  ompt_event_UNIMPLEMENTED
+#define ompt_event_acquired_nest_lock_first_implemented ompt_event_MAY_ALWAYS_TRACE
+#define ompt_event_acquired_nest_lock_next_implemented  ompt_event_MAY_ALWAYS_TRACE
 #define ompt_event_acquired_critical_implemented        ompt_event_UNIMPLEMENTED
 #define ompt_event_acquired_atomic_implemented          ompt_event_MAY_ALWAYS_TRACE
 #define ompt_event_acquired_ordered_implemented         ompt_event_MAY_ALWAYS_TRACE

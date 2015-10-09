@@ -2085,6 +2085,7 @@ __kmpc_set_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 #endif
 
 #else // KMP_USE_DYNAMIC_LOCK
+    int acquire_status;
     kmp_user_lock_p lck;
 
     if ( ( __kmp_user_lock_kind == lk_tas ) && ( sizeof( lck->tas.lk.poll )
@@ -2106,12 +2107,24 @@ __kmpc_set_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     __kmp_itt_lock_acquiring( lck );
 #endif /* USE_ITT_BUILD */
 
-    ACQUIRE_NESTED_LOCK( lck, gtid );
+    ACQUIRE_NESTED_LOCK( lck, gtid, &acquire_status );
 
 #if USE_ITT_BUILD
     __kmp_itt_lock_acquired( lck );
 #endif /* USE_ITT_BUILD */
 #endif // KMP_USE_DYNAMIC_LOCK
+
+#if OMPT_SUPPORT && OMPT_BLAME
+    if (ompt_enabled) {
+        if (acquire_status == KMP_LOCK_ACQUIRED_FIRST) {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first)((uint64_t) lck);
+        } else {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next)((uint64_t) lck);
+        }
+    }
+#endif
 }
 
 void

@@ -68,6 +68,8 @@ ompt_get_runtime_version()
 }
 
 // functions for ompt_target_initialize
+void __ompt_initialize_runtime();
+
 typedef int (*ompt_enabled_t)();
 int __ompt_enabled();
 

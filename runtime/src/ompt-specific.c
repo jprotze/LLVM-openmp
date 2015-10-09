@@ -334,6 +334,13 @@ __ompt_team_assign_id(kmp_team_t *team, ompt_parallel_id_t ompt_pid)
 // functions for ompt_target_initialize
 // ---------------------------------------------------------
 
+void __ompt_initialize_runtime()
+{
+    // initialize if not yet done; if not serial the library has already been
+    // initialized and the call is no-op
+    __kmp_serial_initialize();
+}
+
 int __ompt_enabled()
 {
     return ompt_enabled;

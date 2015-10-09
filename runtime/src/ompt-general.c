@@ -113,8 +113,8 @@ ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
     assert(!ompt_target_init);
     ompt_target_init = 1;
 
-    // initialize the runtime (initial thread and call to ompt_initialize)
-    __kmp_serial_initialize();
+    // initialize the runtime
+    __ompt_initialize_runtime();
 
     // set pointers
     *ompt_enabled_p = &__ompt_enabled;

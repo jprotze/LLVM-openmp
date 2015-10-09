@@ -100,12 +100,22 @@ ompt_initialize_t ompt_tool()
     return NULL;
 }
 
+typedef struct ompt_target_lib_info_s {
+    int                        *enabled;
+    ompt_get_target_callback_t  get_target_callback;
+    ompt_get_task_id_t          get_task_id;
+    ompt_get_task_frame_t       get_task_frame;
+} ompt_target_lib_info_t;
 
-_OMP_EXTERN void
-ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
-                       ompt_get_target_callback_t *ompt_get_target_callback_p,
-                       ompt_get_task_id_t *ompt_get_task_id_p,
-                       ompt_get_task_frame_t *ompt_get_task_frame_p)
+const ompt_target_lib_info_t ompt_target_lib_info = {
+    .enabled                    = &ompt_enabled,
+    .get_target_callback        = &__ompt_get_target_callback,
+    .get_task_id                = &ompt_get_task_id,
+    .get_task_frame             = &ompt_get_task_frame
+};
+
+_OMP_EXTERN const ompt_target_lib_info_t *
+ompt_target_initialize()
 {
     static int ompt_target_init = 0;
 
@@ -116,11 +126,7 @@ ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
     // initialize the runtime
     __ompt_initialize_runtime();
 
-    // set pointers
-    *ompt_enabled_p = &__ompt_enabled;
-    *ompt_get_target_callback_p = &__ompt_get_target_callback;
-    *ompt_get_task_id_p = &ompt_get_task_id;
-    *ompt_get_task_frame_p = &ompt_get_task_frame;
+    return &ompt_target_lib_info;
 }
 
 

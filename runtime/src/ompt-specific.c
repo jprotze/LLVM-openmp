@@ -341,11 +341,6 @@ void __ompt_initialize_runtime()
     __kmp_serial_initialize();
 }
 
-int __ompt_enabled()
-{
-    return ompt_enabled;
-}
-
 static int ompt_get_callback(ompt_event_t, ompt_callback_t *);
 
 ompt_callback_t __ompt_get_target_callback(ompt_event_t event)

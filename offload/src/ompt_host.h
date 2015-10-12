@@ -24,13 +24,14 @@ typedef struct ompt_target_info_s {
 
 
 // filled in __ompt_target_initialize
-extern ompt_get_task_id_t ompt_get_task_id;
-
 typedef int (*ompt_enabled_t)();
 extern ompt_enabled_t ompt_enabled;
 
 typedef ompt_callback_t (*ompt_get_target_callback_t)(ompt_event_t);
 extern ompt_get_target_callback_t __ompt_get_target_callback;
+
+extern ompt_get_task_id_t ompt_get_task_id;
+extern ompt_get_task_frame_t ompt_get_task_frame;
 
 void __ompt_target_initialize();
 
@@ -38,8 +39,10 @@ void __ompt_target_initialize();
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern void ompt_target_initialize(ompt_get_task_id_t *, ompt_enabled_t *,
+extern void ompt_target_initialize(ompt_enabled_t *,
                                    ompt_get_target_callback_t *,
+                                   ompt_get_task_id_t *,
+                                   ompt_get_task_frame_t *,
                                    ompt_recording_start_t,
                                    ompt_recording_stop_t);
 #ifdef __cplusplus
@@ -76,8 +79,6 @@ ompt_get_task_callback(ompt_event_t evid)
 {
     return (ompt_task_callback_t) __ompt_get_target_callback(evid);
 }
-
-ompt_task_id_t __ompt_target_task_id_new();
 
 // tracing inquiry functions
 int __ompt_recording_start(

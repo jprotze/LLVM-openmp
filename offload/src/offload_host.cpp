@@ -2091,8 +2091,11 @@ bool OffloadDescriptor::offload(
 
 
 #if OMPT_SUPPORT
-   int device_id;
+   // task id of surrounding task
    ompt_task_id_t task_id;
+   // task id of implicit target task if any
+   ompt_task_id_t target_task_id = 0;
+   int device_id = m_device.get_logical_index();
    int i;
    bool is_update = false;
    bool is_target_data_begin = false;
@@ -2103,25 +2106,21 @@ bool OffloadDescriptor::offload(
    ompt_target_info_t& target_info = m_device.get_target_info();
 
    if (ompt_enabled()) {
-     
      if (ompt_get_new_target_task_callback(ompt_event_target_task_begin) && !is_empty ) {
-       target_task_id = __ompt_target_task_id_new();
-       device_id = m_device.get_logical_index();
-       task_id = ompt_get_task_id(0);
-       ompt_get_new_target_task_callback(ompt_event_target_task_begin)(task_id,
-                                       0, // FIXME
-                                       target_task_id,
-                                       device_id,
-                                       0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME 
+       // parent_task_id
+       task_id = ompt_get_task_id(1);
+       ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
+       // has implicit task
+       target_task_id = ompt_get_task_id(0);
+
+       ompt_get_new_target_task_callback(ompt_event_target_task_begin)(
+         task_id, parent_task_frame, target_task_id, device_id,
+         0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME
      }
 
      if ( (ompt_get_new_target_task_callback(ompt_event_target_update_begin) ||
            ompt_get_new_target_data_callback(ompt_event_target_data_begin) ) &&
            is_empty ) {
-       target_task_id = __ompt_target_task_id_new();
-       device_id = m_device.get_logical_index();
-       task_id = ompt_get_task_id(0);
-
        // We assume that we have an update region if one of
        // the variables neither is allocated nor freed.
        // If one of the one of the variables is allocated
@@ -2144,32 +2143,28 @@ bool OffloadDescriptor::offload(
        if(target_info.is_target_data && vars_total == 0) is_target_data_begin = true;
 
        if(!is_update){
+         // surrounding task (no implicit task for target data regions)
+         task_id = ompt_get_task_id(0);
          if(is_target_data_begin) {
            if(ompt_get_new_target_data_callback(ompt_event_target_data_begin)) {
-           ompt_get_new_target_data_callback(ompt_event_target_data_begin)(task_id,
-                                           device_id,
-                                           0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME
+           ompt_get_new_target_data_callback(ompt_event_target_data_begin)(
+             task_id, device_id, 0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME
            }
          }
        } else {
-         if(ompt_get_new_target_task_callback(ompt_event_target_update_begin)) {
-           // update done in own target task
-           target_task_id = __ompt_target_task_id_new();
-           if (ompt_get_new_target_task_callback(ompt_event_target_task_begin)) {
-               device_id = m_device.get_logical_index();
-               task_id = ompt_get_task_id(0);
-               ompt_get_new_target_task_callback(ompt_event_target_task_begin)(task_id,
-                                               0, // FIXME
-                                               target_task_id,
-                                               device_id,
-                                               0); //FIXME
-           }
+         // update done in own target task
+         task_id = ompt_get_task_id(1);
+         ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
+         target_task_id = ompt_get_task_id(0);
 
-           ompt_get_new_target_task_callback(ompt_event_target_update_begin)(task_id,
-                                           0, // FIXME
-                                           target_task_id,
-                                           device_id,
-                                           0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME
+         if (ompt_get_new_target_task_callback(ompt_event_target_task_begin)) {
+           ompt_get_new_target_task_callback(ompt_event_target_task_begin)(
+             task_id, parent_task_frame, target_task_id, device_id, 0); //FIXME
+         }
+
+         if(ompt_get_new_target_task_callback(ompt_event_target_update_begin)) {
+           ompt_get_new_target_task_callback(ompt_event_target_update_begin)(
+             task_id, parent_task_frame, target_task_id, device_id, 0);//m_device.m_funcs[Engine::c_func_compute]); //FIXME
          }
        }
      } // target update/data
@@ -2274,11 +2269,6 @@ bool OffloadDescriptor::offload(
 #if OMPT_SUPPORT
    if (ompt_enabled()) {
 
-     // target end
-     if (ompt_get_task_callback(ompt_event_target_task_end) && !is_empty) {
-       ompt_get_task_callback(ompt_event_target_task_end)(task_id);
-     }
-
      // Set this thread local variable to 0, because the next call might be a target update
      target_info.is_target_data = 0;
 
@@ -2294,13 +2284,14 @@ bool OffloadDescriptor::offload(
          }
        } else {
          if(ompt_get_task_callback(ompt_event_target_update_end)) {
-           ompt_get_task_callback(ompt_event_target_update_end)(0); // FIXME: target task id needed here
-
-           if(ompt_get_task_callback(ompt_event_target_task_end)) {
-             ompt_get_task_callback(ompt_event_target_task_end)(task_id);
-           }
+           ompt_get_task_callback(ompt_event_target_update_end)(target_task_id);
          }
        }
+     }
+
+     // target task end
+     if (target_task_id && ompt_get_task_callback(ompt_event_target_task_end)) {
+       ompt_get_task_callback(ompt_event_target_task_end)(target_task_id);
      }
    }
 #endif

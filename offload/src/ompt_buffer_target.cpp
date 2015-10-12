@@ -265,7 +265,7 @@ TEST_THREAD_CALLBACK(ompt_event_flush)
 
 #define CHECK(EVENT) ompt_set_callback(EVENT, (ompt_callback_t) my_##EVENT); 
 
-int ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version, unsigned int ompt_version) {
+void ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version, unsigned int ompt_version) {
     printf("Initializing OMPT on device...\n");
 
     my_ompt_get_thread_id = (ompt_get_thread_id_t) lookup("ompt_get_thread_id");
@@ -341,7 +341,10 @@ int ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version, 
     CHECK(ompt_event_destroy_lock);
     CHECK(ompt_event_destroy_nest_lock);
     CHECK(ompt_event_flush);
-    
-    return 1;
 }
 
+ompt_initialize_t
+ompt_tool()
+{
+    return ompt_initialize;
+}

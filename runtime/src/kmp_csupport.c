@@ -1801,7 +1801,7 @@ __kmpc_init_lock( ident_t * loc, kmp_int32 gtid,  void ** user_lock ) {
     INIT_LOCK( lck );
     __kmp_set_user_lock_location( lck, loc );
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_init_lock)) {
         ompt_callbacks.ompt_callback(ompt_event_init_lock)((uint64_t) lck);
@@ -1877,7 +1877,7 @@ __kmpc_init_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     INIT_NESTED_LOCK( lck );
     __kmp_set_user_lock_location( lck, loc );
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_init_nest_lock)) {
         ompt_callbacks.ompt_callback(ompt_event_init_nest_lock)((uint64_t) lck);
@@ -1922,7 +1922,7 @@ __kmpc_destroy_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
         lck = __kmp_lookup_user_lock( user_lock, "omp_destroy_lock" );
     }
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_destroy_lock)) {
         ompt_callbacks.ompt_callback(ompt_event_destroy_lock)((uint64_t) lck);
@@ -1980,7 +1980,7 @@ __kmpc_destroy_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
         lck = __kmp_lookup_user_lock( user_lock, "omp_destroy_nest_lock" );
     }
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_destroy_nest_lock)) {
         ompt_callbacks.ompt_callback(ompt_event_destroy_nest_lock)((uint64_t) lck);
@@ -2062,7 +2062,7 @@ __kmpc_set_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
     __kmp_itt_lock_acquired( lck );
 #endif /* USE_ITT_BUILD */
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_acquired_lock)) {
         ompt_callbacks.ompt_callback(ompt_event_acquired_lock)((uint64_t) lck);
@@ -2114,7 +2114,7 @@ __kmpc_set_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 #endif /* USE_ITT_BUILD */
 #endif // KMP_USE_DYNAMIC_LOCK
 
-#if OMPT_SUPPORT && OMPT_BLAME
+#if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled) {
         if (acquire_status == KMP_LOCK_ACQUIRED_FIRST) {
            if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first))

@@ -147,8 +147,7 @@ __kmp_acquire_tas_lock_with_checks( kmp_tas_lock_t *lck, kmp_int32 gtid )
     if ( ( gtid >= 0 ) && ( __kmp_get_tas_lock_owner( lck ) == gtid ) ) {
         KMP_FATAL( LockIsAlreadyOwned, func );
     }
-    __kmp_acquire_tas_lock( lck, gtid );
-    return KMP_LOCK_ACQUIRED_FIRST;
+    return __kmp_acquire_tas_lock( lck, gtid );
 }
 
 int
@@ -1401,6 +1400,7 @@ __kmp_acquire_queuing_lock_timed_template( kmp_queuing_lock_t *lck,
 
     }
     KMP_ASSERT2( 0, "should not get here" );
+    return KMP_LOCK_ACQUIRED_FIRST;
 }
 
 int
@@ -2648,6 +2648,7 @@ static int
 __kmp_acquire_drdpa_lock_with_checks( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
 {
     char const * const func = "omp_set_lock";
+    int lock_acquired_first;
     if ( lck->lk.initialized != lck ) {
         KMP_FATAL( LockIsUninitialized, func );
     }
@@ -2658,9 +2659,11 @@ __kmp_acquire_drdpa_lock_with_checks( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
         KMP_FATAL( LockIsAlreadyOwned, func );
     }
 
-    return __kmp_acquire_drdpa_lock( lck, gtid );
+    lock_acquired_first = __kmp_acquire_drdpa_lock( lck, gtid );
 
     lck->lk.owner_id = gtid + 1;
+
+    return lock_acquired_first;
 }
 
 int

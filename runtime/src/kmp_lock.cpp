@@ -2648,7 +2648,6 @@ static int
 __kmp_acquire_drdpa_lock_with_checks( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
 {
     char const * const func = "omp_set_lock";
-    int lock_acquired_first;
     if ( lck->lk.initialized != lck ) {
         KMP_FATAL( LockIsUninitialized, func );
     }
@@ -2659,11 +2658,10 @@ __kmp_acquire_drdpa_lock_with_checks( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
         KMP_FATAL( LockIsAlreadyOwned, func );
     }
 
-    lock_acquired_first = __kmp_acquire_drdpa_lock( lck, gtid );
+    __kmp_acquire_drdpa_lock( lck, gtid );
 
     lck->lk.owner_id = gtid + 1;
-
-    return lock_acquired_first;
+    return KMP_LOCK_ACQUIRED_FIRST;
 }
 
 int

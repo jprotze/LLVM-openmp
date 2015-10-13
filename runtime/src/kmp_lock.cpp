@@ -1334,7 +1334,7 @@ __kmp_acquire_queuing_lock_timed_template( kmp_queuing_lock_t *lck,
 #endif
 
                     KMP_FSYNC_ACQUIRED( lck );
-                    return KMP_LOCK_ACQUIRED_NEXT; /* lock holder cannot be on queue */
+                    return KMP_LOCK_ACQUIRED_FIRST; /* lock holder cannot be on queue */
                 }
                 enqueued = FALSE;
             }
@@ -1387,7 +1387,7 @@ __kmp_acquire_queuing_lock_timed_template( kmp_queuing_lock_t *lck,
 #endif
 
             /* got lock, we were dequeued by the thread that released lock */
-            return KMP_LOCK_ACQUIRED_NEXT;
+            return KMP_LOCK_ACQUIRED_FIRST;
         }
 
         /* Yield if number of threads > number of logical processors */
@@ -2635,6 +2635,7 @@ __kmp_acquire_drdpa_lock_timed_template( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
             lck->lk.cleanup_ticket = TCR_8(lck->lk.next_ticket);
         }
     }
+    return KMP_LOCK_ACQUIRED_FIRST;
 }
 
 int
@@ -2842,7 +2843,7 @@ __kmp_acquire_nested_drdpa_lock( kmp_drdpa_lock_t *lck, kmp_int32 gtid )
         lck->lk.depth_locked = 1;
         KMP_MB();
         lck->lk.owner_id = gtid + 1;
-        return KMP_LOCK_ACQUIRED_NEXT;
+        return KMP_LOCK_ACQUIRED_FIRST;
     }
 }
 

@@ -683,7 +683,7 @@ static inline int
 __kmp_acquire_user_lock_with_checks( kmp_user_lock_p lck, kmp_int32 gtid )
 {
     KMP_DEBUG_ASSERT( __kmp_acquire_user_lock_with_checks_ != NULL );
-    ( *__kmp_acquire_user_lock_with_checks_ )( lck, gtid );
+    return ( *__kmp_acquire_user_lock_with_checks_ )( lck, gtid );
 }
 #endif
 
@@ -775,6 +775,7 @@ extern int ( *__kmp_acquire_nested_user_lock_with_checks_ )( kmp_user_lock_p lck
         }                                                                                           \
         if ( lck->tas.lk.poll - 1 == gtid ) {                                                       \
             lck->tas.lk.depth_locked += 1;                                                          \
+            *depth = KMP_LOCK_ACQUIRED_NEXT;                                                        \
         } else {                                                                                    \
             if ( ( lck->tas.lk.poll != 0 ) ||                                                       \
               ( ! KMP_COMPARE_AND_STORE_ACQ32( &(lck->tas.lk.poll), 0, gtid + 1 ) )  ) {            \
@@ -796,9 +797,9 @@ extern int ( *__kmp_acquire_nested_user_lock_with_checks_ )( kmp_user_lock_p lck
                 }                                                                                   \
             }                                                                                       \
             lck->tas.lk.depth_locked = 1;                                                           \
+            *depth = KMP_LOCK_ACQUIRED_FIRST;                                                       \
         }                                                                                           \
         KMP_FSYNC_ACQUIRED( lck );                                                                  \
-        *depth = KMP_LOCK_ACQUIRED_FIRST;                                                           \
     } else {                                                                                        \
         KMP_DEBUG_ASSERT( __kmp_acquire_nested_user_lock_with_checks_ != NULL );                    \
         *depth = ( *__kmp_acquire_nested_user_lock_with_checks_ )( lck, gtid );                     \

@@ -30,6 +30,17 @@ void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_id_t thread_id) \
   printf("%d: %s: thread_id=%lu thread_type=%d type_string='%s'\n", omp_get_thread_num(), #EVENT, thread_id, thread_type, type_strings[thread_type-1]); \
   fflush(stdout); \
   \
+  ompt_record_t event;\
+  event.type = ##EVENT; \
+  event.time = ompt_get_time(); \
+  event.record.thread_type = { \
+    .thread_id = thread_id, \
+    .thread_type = thread_type \
+  }; \
+  if (##EVENT != ompt_event_thread_end) { \
+    ompt_buffer_add_target_event(event); \
+  } \
+  \
 } 
 
 #define TEST_WAIT_CALLBACK(EVENT) \

@@ -2107,6 +2107,8 @@ bool OffloadDescriptor::offload(
 
    if (ompt_enabled()) {
      if (ompt_get_new_target_task_callback(ompt_event_target_task_begin) && !is_empty ) {
+       ompt_target_task_begin();
+       
        // parent_task_id
        task_id = ompt_get_task_id(1);
        ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
@@ -2153,6 +2155,8 @@ bool OffloadDescriptor::offload(
          }
        } else {
          // update done in own target task
+         ompt_target_task_begin();
+         
          task_id = ompt_get_task_id(1);
          ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
          target_task_id = ompt_get_task_id(0);
@@ -2293,6 +2297,8 @@ bool OffloadDescriptor::offload(
      if (target_task_id && ompt_get_task_callback(ompt_event_target_task_end)) {
        ompt_get_task_callback(ompt_event_target_task_end)(target_task_id);
      }
+     
+     ompt_target_task_end();
    }
 #endif
 

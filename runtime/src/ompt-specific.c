@@ -50,6 +50,8 @@ __ompt_get_teaminfo(int depth, int *size)
 
     if (thr) {
         kmp_team *team = thr->th.th_team;
+        if (team == NULL) return NULL;
+
         ompt_lw_taskteam_t *lwt = LWT_FROM_TEAM(team);
 
         while(depth > 0) {
@@ -334,9 +336,11 @@ __ompt_team_assign_id(kmp_team_t *team, ompt_parallel_id_t ompt_pid)
 // functions for ompt_target_initialize
 // ---------------------------------------------------------
 
-int __ompt_enabled()
+void __ompt_initialize_runtime()
 {
-    return ompt_enabled;
+    // initialize if not yet done; if not serial the library has already been
+    // initialized and the call is no-op
+    __kmp_serial_initialize();
 }
 
 static int ompt_get_callback(ompt_event_t, ompt_callback_t *);

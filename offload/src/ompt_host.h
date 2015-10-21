@@ -22,16 +22,17 @@ typedef struct ompt_target_info_s {
     int device_id;
 } ompt_target_info_t;
 
-
-// filled in __ompt_target_initialize
-typedef int (*ompt_enabled_t)();
-extern ompt_enabled_t ompt_enabled;
-
+// keep in sync with ompt-general.c
 typedef ompt_callback_t (*ompt_get_target_callback_t)(ompt_event_t);
-extern ompt_get_target_callback_t __ompt_get_target_callback;
 
-extern ompt_get_task_id_t ompt_get_task_id;
-extern ompt_get_task_frame_t ompt_get_task_frame;
+typedef struct ompt_target_lib_info_s {
+    int                        *enabled;
+    ompt_get_target_callback_t  get_target_callback;
+    ompt_get_task_id_t          get_task_id;
+    ompt_get_task_frame_t       get_task_frame;
+} ompt_target_lib_info_t;
+
+extern const ompt_target_lib_info_t *ompt_info;
 
 void __ompt_target_initialize();
 
@@ -39,45 +40,61 @@ void __ompt_target_initialize();
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern void ompt_target_initialize(ompt_enabled_t *,
-                                   ompt_get_target_callback_t *,
-                                   ompt_get_task_id_t *,
-                                   ompt_get_task_frame_t *,
+extern const ompt_target_lib_info_t *ompt_target_initialize(
                                    ompt_recording_start_t,
                                    ompt_recording_stop_t);
 #ifdef __cplusplus
 };
 #endif
 
-// helper functions for callbacks
+// helper functions
+static inline int ompt_enabled()
+{
+    return *(ompt_info->enabled);
+}
+
+
+// callback helpers
 static inline ompt_new_target_task_callback_t
 ompt_get_new_target_task_callback(ompt_event_t evid)
 {
-    return (ompt_new_target_task_callback_t) __ompt_get_target_callback(evid);
+    return (ompt_new_target_task_callback_t) ompt_info->get_target_callback(evid);
 }
 
 static inline ompt_new_target_data_callback_t
 ompt_get_new_target_data_callback(ompt_event_t evid)
 {
-    return (ompt_new_target_data_callback_t) __ompt_get_target_callback(evid);
+    return (ompt_new_target_data_callback_t) ompt_info->get_target_callback(evid);
 }
 
 static inline ompt_new_data_map_callback_t
 ompt_get_new_data_map_callback(ompt_event_t evid)
 {
-    return (ompt_new_data_map_callback_t) __ompt_get_target_callback(evid);
+    return (ompt_new_data_map_callback_t) ompt_info->get_target_callback(evid);
 }
 
 static inline ompt_data_map_done_callback_t
 ompt_get_target_data_map_done_callback(ompt_event_t evid)
 {
-    return (ompt_data_map_done_callback_t) __ompt_get_target_callback(evid);
+    return (ompt_data_map_done_callback_t) ompt_info->get_target_callback(evid);
 }
 
 static inline ompt_task_callback_t
 ompt_get_task_callback(ompt_event_t evid)
 {
-    return (ompt_task_callback_t) __ompt_get_target_callback(evid);
+    return (ompt_task_callback_t) ompt_info->get_target_callback(evid);
+}
+
+
+// task information
+static inline ompt_task_id_t ompt_get_task_id(int depth)
+{
+    return ompt_info->get_task_id(depth);
+}
+
+static inline ompt_frame_t *ompt_get_task_frame(int depth)
+{
+    return ompt_info->get_task_frame(depth);
 }
 
 // tracing inquiry functions

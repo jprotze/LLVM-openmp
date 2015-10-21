@@ -105,13 +105,22 @@ ompt_initialize_t ompt_tool()
     return NULL;
 }
 
+typedef struct ompt_target_lib_info_s {
+    int                        *enabled;
+    ompt_get_target_callback_t  get_target_callback;
+    ompt_get_task_id_t          get_task_id;
+    ompt_get_task_frame_t       get_task_frame;
+} ompt_target_lib_info_t;
 
-_OMP_EXTERN void
-ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
-                       ompt_get_target_callback_t *ompt_get_target_callback_p,
-                       ompt_get_task_id_t *ompt_get_task_id_p,
-                       ompt_get_task_frame_t *ompt_get_task_frame_p,
-                       ompt_recording_start_t ompt_recording_start_p,
+const ompt_target_lib_info_t ompt_target_lib_info = {
+    .enabled                    = &ompt_enabled,
+    .get_target_callback        = &__ompt_get_target_callback,
+    .get_task_id                = &ompt_get_task_id,
+    .get_task_frame             = &ompt_get_task_frame
+};
+
+_OMP_EXTERN const ompt_target_lib_info_t *
+ompt_target_initialize(ompt_recording_start_t ompt_recording_start_p,
                        ompt_recording_stop_t ompt_recording_stop_p)
 {
     static int ompt_target_init = 0;
@@ -120,18 +129,14 @@ ompt_target_initialize(ompt_enabled_t *ompt_enabled_p,
     assert(!ompt_target_init);
     ompt_target_init = 1;
 
-    // initialize the runtime (initial thread and call to ompt_initialize)
-    __kmp_serial_initialize();
-
-    // set pointers
-    *ompt_enabled_p = &__ompt_enabled;
-    *ompt_get_target_callback_p = &__ompt_get_target_callback;
-    *ompt_get_task_id_p = &ompt_get_task_id;
-    *ompt_get_task_frame_p = &ompt_get_task_frame;
+    // initialize the runtime
+    __ompt_initialize_runtime();
 
     // override empty tracing functions
     __ompt_recording_start = ompt_recording_start_p;
     __ompt_recording_stop = ompt_recording_stop_p;
+
+    return &ompt_target_lib_info;
 }
 
 

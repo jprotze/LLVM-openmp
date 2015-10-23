@@ -2294,11 +2294,12 @@ bool OffloadDescriptor::offload(
      }
 
      // target task end
-     if (target_task_id && ompt_get_task_callback(ompt_event_target_task_end)) {
-       ompt_get_task_callback(ompt_event_target_task_end)(target_task_id);
+     if (target_task_id) {
+       if (ompt_get_task_callback(ompt_event_target_task_end)) {
+         ompt_get_task_callback(ompt_event_target_task_end)(target_task_id);
+       }
+       ompt_target_task_end();
      }
-     
-     ompt_target_task_end();
    }
 #endif
 

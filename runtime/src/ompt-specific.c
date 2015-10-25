@@ -87,10 +87,16 @@ __ompt_get_teaminfo(int depth, int *size)
 ompt_task_info_t *
 __ompt_get_taskinfo(int depth)
 {
-    ompt_task_info_t *info = NULL;
     kmp_info_t *thr = ompt_get_thread();
 
     if (thr) {
+        if (thr->th.ompt_target_task_info.task_id != ompt_task_id_none) {
+            if (depth == 0) {
+                return &thr->th.ompt_target_task_info;
+            }
+            depth--;
+        }
+
         kmp_taskdata_t  *taskdata = thr->th.th_current_task;
         ompt_lw_taskteam_t *lwt = LWT_FROM_TEAM(taskdata->td_team);
 
@@ -110,13 +116,13 @@ __ompt_get_taskinfo(int depth)
         }
 
         if (lwt) {
-            info = &lwt->ompt_task_info;
+            return &lwt->ompt_task_info;
         } else if (taskdata) {
-            info = &taskdata->ompt_task_info;
+            return &taskdata->ompt_task_info;
         }
     }
 
-    return info;
+    return NULL;
 }
 
 
@@ -376,4 +382,23 @@ int
 __ompt_recording_stop_internal(int device_id)
 {
   return 0;
+}
+
+void __ompt_target_task_begin()
+{
+    kmp_info_t *thr = ompt_get_thread();
+    int gtid = thr->th.th_info.ds.ds_gtid;
+
+    // FIXME: fill with correct values!
+    thr->th.ompt_target_task_info.frame.exit_runtime_frame = NULL;
+    thr->th.ompt_target_task_info.frame.reenter_runtime_frame = NULL;
+    thr->th.ompt_target_task_info.function = NULL;
+    thr->th.ompt_target_task_info.task_id = __ompt_task_id_new(gtid);
+}
+
+void __ompt_target_task_end() {
+    kmp_info_t *thr = ompt_get_thread();
+
+    // only task id is checked in __ompt_get_taskinfo
+    thr->th.ompt_target_task_info.task_id = ompt_task_id_none;
 }

@@ -73,4 +73,8 @@ void __ompt_initialize_runtime();
 typedef ompt_callback_t (*ompt_get_target_callback_t)(ompt_event_t);
 ompt_callback_t __ompt_get_target_callback(ompt_event_t);
 
+typedef void (*ompt_target_task_fn_t)(void);
+void __ompt_target_task_begin();
+void __ompt_target_task_end();
+
 #endif

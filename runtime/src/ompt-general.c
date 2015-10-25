@@ -110,13 +110,17 @@ typedef struct ompt_target_lib_info_s {
     ompt_get_target_callback_t  get_target_callback;
     ompt_get_task_id_t          get_task_id;
     ompt_get_task_frame_t       get_task_frame;
+    ompt_target_task_fn_t       target_task_begin;
+    ompt_target_task_fn_t       target_task_end;
 } ompt_target_lib_info_t;
 
 const ompt_target_lib_info_t ompt_target_lib_info = {
     .enabled                    = &ompt_enabled,
     .get_target_callback        = &__ompt_get_target_callback,
     .get_task_id                = &ompt_get_task_id,
-    .get_task_frame             = &ompt_get_task_frame
+    .get_task_frame             = &ompt_get_task_frame,
+    .target_task_begin          = &__ompt_target_task_begin,
+    .target_task_end            = &__ompt_target_task_end
 };
 
 _OMP_EXTERN const ompt_target_lib_info_t *

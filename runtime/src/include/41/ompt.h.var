@@ -17,30 +17,23 @@
  * iteration macros
  *****************************************************************************/
 
-#define FOREACH_OMPT_INQUIRY_FN(macro)      \
-    macro (ompt_enumerate_state)            \
-                                            \
-    macro (ompt_set_callback)               \
-    macro (ompt_get_callback)               \
-                                            \
-    macro (ompt_get_idle_frame)             \
-    macro (ompt_get_task_frame)             \
-                                            \
-    macro (ompt_get_state)                  \
-                                            \
-    macro (ompt_get_parallel_id)            \
-    macro (ompt_get_parallel_team_size)     \
-    macro (ompt_get_task_id)                \
-    macro (ompt_get_thread_id)              \
-    macro (ompt_record_set)                 \
-    macro (ompt_record_native_set)          \
-    macro (ompt_recording_start)            \
-    macro (ompt_recording_stop)             \
-    macro (ompt_buffer_cursor_advance)      \
-    macro (ompt_record_get_type)            \
-    macro (ompt_record_get)                 \
-    macro (ompt_record_native_get)          \
-    macro (ompt_record_native_get_abstract)
+#define FOREACH_OMPT_INQUIRY_FN(macro)  \
+    macro (ompt_enumerate_state)        \
+                                        \
+    macro (ompt_set_callback)           \
+    macro (ompt_get_callback)           \
+                                        \
+    macro (ompt_get_idle_frame)         \
+    macro (ompt_get_task_frame)         \
+                                        \
+    macro (ompt_get_state)              \
+                                        \
+    macro (ompt_get_parallel_id)        \
+    macro (ompt_get_parallel_team_size) \
+    macro (ompt_get_task_id)            \
+    macro (ompt_get_thread_id)          \
+    macro (ompt_recording_start)        \
+    macro (ompt_recording_stop)
 
 #define FOREACH_OMPT_PLACEHOLDER_FN(macro)  \
     macro (ompt_idle)                       \
@@ -532,39 +525,12 @@ OMPT_API_FUNCTION(int, ompt_get_callback, (
  * TARGET DEVICE TRACING (EXPERIMENTAL)
  ***************************************************************************/
 
-typedef int ompt_bool; // FIXME
-typedef void ompt_buffer_t; // FIXME
-typedef ompt_buffer_t* ompt_buffer_cursor_t;
-
 /* OMPT record type */
 typedef enum {
     ompt_record_ompt,
-    ompt_record_correlation,
     ompt_record_native,
-    ompt_record_invalid
+    ompt_record_notype
 } ompt_record_type_t;
-
-/* OMPT native record kind */
-typedef enum {
-    ompt_record_native_kind_info,
-    ompt_record_native_kind_event
-} ompt_record_native_kind_t;
-
-/* native record abstract */
-typedef struct ompt_record_native_abstract_s {
-    ompt_record_native_kind_t kind;
-    const char *type;
-    uint64_t start_time;
-    uint64_t end_time;
-    uint32_t hwid;
-    ompt_dev_activity_id_t dev_task_id;
-} ompt_record_native_abstract_t;
-
-/* correlation */
-typedef struct ompt_record_correlation_s {
-    ompt_task_id_t host_task_id;
-    ompt_dev_activity_id_t dev_task_id;
-} ompt_record_correlation_t;
 
 /* target record types */
 typedef struct
@@ -659,19 +625,7 @@ typedef void (*ompt_target_buffer_complete_callback_t) (
     size_t valid_bytes       /* number of valid bytes in the buffer */
 );
 
-/* target tracing control */
-OMPT_API_FUNCTION(int, ompt_record_set, (
-    int device_id,              /* target device id */
-    ompt_bool enable,           /* enable or disable */
-    ompt_record_type_t rtype    /* a record type */
-));
-
-OMPT_API_FUNCTION(int, ompt_record_native_set, (
-    int device_id,              /* target device id */
-    ompt_bool enable,           /* enable or disable */
-    uint32_t flags              /* event classes to monitor */
-));
-
+/* target tracing start / end */
 OMPT_API_FUNCTION(int, ompt_recording_start, (
     int device_id,
     /* pointer to buffer request callback */
@@ -682,32 +636,6 @@ OMPT_API_FUNCTION(int, ompt_recording_start, (
 
 OMPT_API_FUNCTION(int, ompt_recording_stop, (
     int device_id
-));
-
-/* target trace record processing */
-OMPT_API_FUNCTION(int, ompt_buffer_cursor_advance, (
-    ompt_buffer_t *buffer,
-    ompt_buffer_cursor_t current,
-    ompt_buffer_cursor_t *next
-));
-
-OMPT_API_FUNCTION(ompt_record_type_t, ompt_record_get_type, (
-    ompt_buffer_t *buffer,
-    ompt_buffer_cursor_t current
-));
-
-OMPT_API_FUNCTION(ompt_record_t*, ompt_record_get, (
-    ompt_buffer_t *buffer,
-    ompt_buffer_cursor_t current
-));
-
-OMPT_API_FUNCTION(void*, ompt_record_native_get, (
-    ompt_buffer_t *buffer,
-    ompt_buffer_cursor_t current
-));
-
-OMPT_API_FUNCTION(ompt_record_native_abstract_t, ompt_record_native_get_abstract, (
-    void *native_record
 ));
 
 

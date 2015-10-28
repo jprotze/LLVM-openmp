@@ -52,8 +52,9 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             COIEventSignalUserEvent(ompt_buffer_request_events[tid-1]);
 
             // wait for tool allocating buffer on host
-            while (!buffer_request_condition) 
+            while (!buffer_request_condition) {
                 pthread_cond_wait(&waiting_buffer_request, &mutex_waiting_buffer_request);
+            }
             buffer_request_condition = false;
 
             // copy buffer size and pointer to TLS
@@ -75,8 +76,9 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             COIEventSignalUserEvent(ompt_buffer_complete_events[tid-1]);
         
             // wait for tool truncating the buffer on host
-            while (!buffer_full_condition)
+            while (!buffer_full_condition) {
                 pthread_cond_wait(&waiting_buffer_complete, &mutex_waiting_buffer_complete); 
+            }
             buffer_full_condition = false;
 
             ompt_buffer_pos[tid-1] = 0;
@@ -126,6 +128,20 @@ void ompt_target_stop_tracing(
 )
 {
     tracing = false;
+}
+
+COINATIVELIBEXPORT
+void ompt_target_restart_tracing(
+    uint32_t  buffer_count,
+    void**    buffers,
+    uint64_t* buffers_len,
+    void*     misc_data,
+    uint16_t  misc_data_len,
+    void*     return_data,
+    uint16_t  return_data_len
+)
+{
+    tracing = true;
 }
 
 COINATIVELIBEXPORT

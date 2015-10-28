@@ -159,6 +159,11 @@ void Engine::init_process(void)
         __dbg_target_id = m_physical_index;
         __dbg_target_so_loaded();
     }
+
+#ifdef OMPT_SUPPORT
+    m_tracer.set_coi_process(m_process);
+    m_tracer.set_device_id(m_index);
+#endif
 }
 
 void Engine::fini_process(bool verbose)
@@ -172,36 +177,10 @@ void Engine::fini_process(bool verbose)
                             m_index);
         
 #ifdef OMPT_SUPPORT
-        if (target_info.tracing) {
-            // look for non-empty buffers and perform an explicit
-            // pull before shutdown of device runtime
-            COIRESULT result = COI::BufferRead(
-                target_info.buffer_pos,
-                0,
-                &target_info.pos,
-                240 * sizeof(uint64_t),
-                COI_COPY_USE_DMA,
-                0, NULL,
-                COI_EVENT_SYNC);
-        
-            for (int i=0; i < 240; i++) {
-                if (target_info.pos[i] != 0) {
-
-                    COIRESULT result = COI::BufferRead(
-                            target_info.buffers[i],
-                            0,
-                            target_info.host_ptrs[i],
-                            target_info.pos[i] * sizeof(ompt_record_t),
-                            COI_COPY_USE_DMA,
-                            0, NULL,
-                            COI_EVENT_SYNC);
-
-                    target_info.complete_callback(
-                            target_info.host_ptrs[i],
-                            m_index,
-                            target_info.pos[i] * sizeof(ompt_record_t));
-                }
-            }
+        // explicitly flush all buffered entries on the target before
+        // shutdown
+        if (m_tracer.tracing()) {
+            m_tracer.flush();
         }
 #endif
 

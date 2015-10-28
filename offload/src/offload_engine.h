@@ -21,6 +21,7 @@
 
 #if OMPT_SUPPORT
 #include "ompt_host.h"
+#include "ompt_buffer_host.h"
 #endif
 
 // Address range
@@ -263,6 +264,10 @@ struct Engine {
     ompt_target_info_t& get_target_info() {
         return target_info;
     }
+
+    Tracer& get_tracer() {
+        return m_tracer;
+    }
 #endif
 
     // initialize device
@@ -497,6 +502,7 @@ private:
     // FIXME: use thread local storage
     // information about the current target
     ompt_target_info_t target_info;
+    Tracer m_tracer;
 #endif
 };
 

@@ -7,17 +7,6 @@
 typedef struct ompt_target_info_s {
     /* boolean flag to differentiate target data and target update*/
     int                             is_target_data;
-    ompt_target_buffer_request_callback_t  request_callback;
-    ompt_target_buffer_complete_callback_t complete_callback;
-    COIBUFFER buffers[240];
-    ompt_record_t* host_ptrs[240];
-    uint64_t host_size[240];
-    COIBUFFER buffer_pos;
-    uint64_t pos[240];
-    COIEVENT request_events[240];
-    COIEVENT full_events[240];
-    COIBUFFER request_event_buffer;
-    COIBUFFER full_event_buffer;
     int tracing;
     int device_id;
 } ompt_target_info_t;

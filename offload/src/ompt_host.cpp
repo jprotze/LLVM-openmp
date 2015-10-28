@@ -41,13 +41,17 @@ int __ompt_recording_start(
     // get corresponding engine
     Engine& engine = mic_engines[device_id % mic_engines_total];
     ompt_target_info_t& target_info = engine.get_target_info();
-    target_info.request_callback = request;
-    target_info.complete_callback = complete;
-    __ompt_target_start_tracing(device_id);
+    Tracer& tracer = engine.get_tracer();
+    tracer.set_callbacks(request, complete);
+    tracer.start();
     return 0;
 }
 
 int __ompt_recording_stop(int device_id) {
-    __ompt_target_stop_tracing(device_id);
+    Engine& engine = mic_engines[device_id % mic_engines_total];
+    ompt_target_info_t& target_info = engine.get_target_info();
+    Tracer& tracer = engine.get_tracer();
+    tracer.stop();
+
     return 0;
 }

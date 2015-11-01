@@ -19,8 +19,7 @@ COIEVENT* ompt_buffer_request_events;
 COIEVENT* ompt_buffer_complete_events;
 uint64_t* ompt_buffer_pos;
 
-pthread_mutex_t mutex_buffer_request;
-pthread_mutex_t mutex_buffer_complete;
+pthread_mutex_t mutex_buffer_transfer;
 
 pthread_cond_t waiting_buffer_request;
 pthread_cond_t waiting_buffer_complete;
@@ -47,7 +46,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
     if (tracing) {
         if (ompt_buffer_size == 0) {
             // request buffer, send signal to host
-            pthread_mutex_lock(&mutex_buffer_request);
+            pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_request);
             COIEventSignalUserEvent(ompt_buffer_request_events[tid-1]);
 
@@ -62,7 +61,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
 
             ompt_target_event_buffer = ompt_target_event_buffer_g;
             pthread_mutex_unlock(&mutex_waiting_buffer_request);
-            pthread_mutex_unlock(&mutex_buffer_request);
+            pthread_mutex_unlock(&mutex_buffer_transfer);
         }
 
         event.thread_id = tid;
@@ -71,7 +70,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
         ompt_buffer_pos[tid-1]++;
 
         if (ompt_buffer_pos[tid-1] >= ompt_buffer_size) {
-            pthread_mutex_lock(&mutex_buffer_complete);
+            pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_complete);
             COIEventSignalUserEvent(ompt_buffer_complete_events[tid-1]);
         
@@ -83,7 +82,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
 
             ompt_buffer_pos[tid-1] = 0;
             pthread_mutex_unlock(&mutex_waiting_buffer_complete);
-            pthread_mutex_unlock(&mutex_buffer_complete);
+            pthread_mutex_unlock(&mutex_buffer_transfer);
         }
     }
 }
@@ -104,8 +103,7 @@ void ompt_target_start_tracing(
     // initialize mutexes and condition variables
     pthread_cond_init(&waiting_buffer_request, NULL);
     pthread_cond_init(&waiting_buffer_complete, NULL);
-    pthread_mutex_init(&mutex_buffer_request, NULL);
-    pthread_mutex_init(&mutex_buffer_complete, NULL);
+    pthread_mutex_init(&mutex_buffer_transfer, NULL);
     pthread_mutex_init(&mutex_waiting_buffer_request, NULL);
     pthread_mutex_init(&mutex_waiting_buffer_complete, NULL);
     tracing = true;
@@ -166,8 +164,6 @@ void ompt_signal_buffer_allocated(
     buffer_request_condition = true;
     pthread_cond_signal(&waiting_buffer_request);
     pthread_mutex_unlock(&mutex_waiting_buffer_request);
-
-        
 }
 
 COINATIVELIBEXPORT

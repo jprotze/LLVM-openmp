@@ -33,19 +33,20 @@ struct Tracer {
     COIFUNCTION ompt_funcs[c_ompt_funcs_total];
     ompt_target_buffer_request_callback_t request_callback;
     ompt_target_buffer_complete_callback_t complete_callback;
-    COIBUFFER request_event_buffer;
-    COIBUFFER full_event_buffer;
     ompt_record_t *host_ptrs[240];
     COIBUFFER buffer_pos;
     uint64_t pos[240];
-    COIEVENT request_events[240];
-    COIEVENT full_events[240];
     thread_buffer_t tbuf[240];
 
     COIPROCESS m_proc;
     int m_device_id;
     int m_tracing;
     int m_paused;
+    COIEVENT m_request_event;
+    COIEVENT m_full_event;
+    COIBUFFER m_tid_buffer;
+    COIBUFFER request_event_buffer;
+    COIBUFFER full_event_buffer;
 
     /**
      * Simplifies pipeline creation.
@@ -55,13 +56,13 @@ struct Tracer {
     /**
      * Pull OMPT buffer entries from device.
      */
-    void pull_buffer(COIBUFFER buffer, void *target_host, size_t bytes);
+    void read_buffer(COIBUFFER buffer, void *target_host, size_t bytes);
 
     /**
      * Register COI event and transfer it to the device such that the
      * device can signal it.
      */
-    void register_event(COIBUFFER buffer, uint64_t offset, COIEVENT *event);
+    void register_event(COIBUFFER buffer, COIEVENT *event);
 
   public:
     inline void set_coi_process(COIPROCESS proc) { m_proc = proc; }

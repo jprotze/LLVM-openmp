@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <ompt.h>
 
+
+ompt_thread_id_t* ompt_tid_buffer;
 ompt_get_thread_id_t my_ompt_get_thread_id;
 
 __thread ompt_record_t* ompt_target_event_buffer;
@@ -15,8 +17,8 @@ __thread uint64_t ompt_buffer_size = 0;
 ompt_record_t* ompt_target_event_buffer_g;
 uint64_t ompt_buffer_size_g = 0;
 
-COIEVENT* ompt_buffer_request_events;
-COIEVENT* ompt_buffer_complete_events;
+COIEVENT* ompt_buffer_request_event;
+COIEVENT* ompt_buffer_complete_event;
 uint64_t* ompt_buffer_pos;
 
 pthread_mutex_t mutex_buffer_transfer;
@@ -48,7 +50,8 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             // request buffer, send signal to host
             pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_request);
-            COIEventSignalUserEvent(ompt_buffer_request_events[tid-1]);
+            *ompt_tid_buffer = tid - 1;
+            COIEventSignalUserEvent(*ompt_buffer_request_event);
 
             // wait for tool allocating buffer on host
             while (!buffer_request_condition) {
@@ -72,7 +75,8 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
         if (ompt_buffer_pos[tid-1] >= ompt_buffer_size) {
             pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_complete);
-            COIEventSignalUserEvent(ompt_buffer_complete_events[tid-1]);
+            *ompt_tid_buffer = tid - 1;
+            COIEventSignalUserEvent(*ompt_buffer_complete_event);
         
             // wait for tool truncating the buffer on host
             while (!buffer_full_condition) {
@@ -106,12 +110,14 @@ void ompt_target_start_tracing(
     pthread_mutex_init(&mutex_buffer_transfer, NULL);
     pthread_mutex_init(&mutex_waiting_buffer_request, NULL);
     pthread_mutex_init(&mutex_waiting_buffer_complete, NULL);
-    tracing = true;
 
     // FIXME: get buffers from host and save in global variables is ugly
-    ompt_buffer_request_events = (COIEVENT*) buffers[0];
-    ompt_buffer_complete_events = (COIEVENT*) buffers[1];
+    ompt_buffer_request_event = (COIEVENT*) buffers[0];
+    ompt_buffer_complete_event = (COIEVENT*) buffers[1];
     ompt_buffer_pos = (uint64_t*) buffers[2];
+    ompt_tid_buffer = (ompt_thread_id_t*) buffers[3];
+
+    tracing = true;
 }
 
 COINATIVELIBEXPORT

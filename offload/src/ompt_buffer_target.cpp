@@ -5,21 +5,14 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <ompt.h>
+#include <map>
 
 
 ompt_thread_id_t* ompt_tid_buffer;
 ompt_get_thread_id_t my_ompt_get_thread_id;
 
-__thread ompt_record_t* ompt_target_event_buffer;
-__thread uint64_t ompt_buffer_size = 0;
-
-// FIXME: We have to avoid using global variables.
-ompt_record_t* ompt_target_event_buffer_g;
-uint64_t ompt_buffer_size_g = 0;
-
 COIEVENT* ompt_buffer_request_event;
 COIEVENT* ompt_buffer_complete_event;
-uint64_t* ompt_buffer_pos;
 
 pthread_mutex_t mutex_buffer_transfer;
 
@@ -32,6 +25,14 @@ bool buffer_full_condition = false;
 
 bool tracing = false;
 
+typedef struct {
+    ompt_record_t* event_buffer;
+    uint64_t buffer_size;
+    uint64_t pos;
+} ompt_thread_data_t;
+
+std::map<uint64_t, ompt_thread_data_t> tdata;
+
 
 uint64_t ompt_get_time() {
     struct timeval tv;
@@ -43,14 +44,16 @@ uint64_t ompt_get_time() {
 void ompt_buffer_add_target_event(ompt_record_t event) {
     // The OMPT thread IDs start with 1 such that we will have to shift tid
     // by 1 to get the right array elements.
-    ompt_thread_id_t tid = my_ompt_get_thread_id();
+    ompt_thread_id_t tid = my_ompt_get_thread_id() - 1;
 
     if (tracing) {
-        if (ompt_buffer_size == 0) {
+        if (!tdata.count(tid)) {
+            tdata[tid].pos = 0;
+
             // request buffer, send signal to host
             pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_request);
-            *ompt_tid_buffer = tid - 1;
+            *ompt_tid_buffer = tid;
             COIEventSignalUserEvent(*ompt_buffer_request_event);
 
             // wait for tool allocating buffer on host
@@ -59,23 +62,19 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             }
             buffer_request_condition = false;
 
-            // copy buffer size and pointer to TLS
-            ompt_buffer_size = ompt_buffer_size_g;
-
-            ompt_target_event_buffer = ompt_target_event_buffer_g;
             pthread_mutex_unlock(&mutex_waiting_buffer_request);
             pthread_mutex_unlock(&mutex_buffer_transfer);
         }
 
-        event.thread_id = tid;
+        event.thread_id = tid + 1;
         event.dev_task_id = 0;
-        ompt_target_event_buffer[ompt_buffer_pos[tid-1]] = event;
-        ompt_buffer_pos[tid-1]++;
+        tdata[tid].event_buffer[tdata[tid].pos] = event;
+        tdata[tid].pos++;
 
-        if (ompt_buffer_pos[tid-1] >= ompt_buffer_size) {
+        if (tdata[tid].pos >= tdata[tid].buffer_size) {
             pthread_mutex_lock(&mutex_buffer_transfer);
             pthread_mutex_lock(&mutex_waiting_buffer_complete);
-            *ompt_tid_buffer = tid - 1;
+            *ompt_tid_buffer = tid;
             COIEventSignalUserEvent(*ompt_buffer_complete_event);
         
             // wait for tool truncating the buffer on host
@@ -84,7 +83,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             }
             buffer_full_condition = false;
 
-            ompt_buffer_pos[tid-1] = 0;
+            tdata[tid].pos = 0;
             pthread_mutex_unlock(&mutex_waiting_buffer_complete);
             pthread_mutex_unlock(&mutex_buffer_transfer);
         }
@@ -114,8 +113,7 @@ void ompt_target_start_tracing(
     // FIXME: get buffers from host and save in global variables is ugly
     ompt_buffer_request_event = (COIEVENT*) buffers[0];
     ompt_buffer_complete_event = (COIEVENT*) buffers[1];
-    ompt_buffer_pos = (uint64_t*) buffers[2];
-    ompt_tid_buffer = (ompt_thread_id_t*) buffers[3];
+    ompt_tid_buffer = (ompt_thread_id_t*) buffers[2];
 
     tracing = true;
 }
@@ -159,13 +157,17 @@ void ompt_signal_buffer_allocated(
     uint16_t  return_data_len
 )
 {
-    // FIXME: get buffer from host and save in global variable is ugly
-    memcpy(&ompt_buffer_size_g, misc_data, sizeof(uint64_t));
-    //ompt_buffer_size_g = *buffers_len / sizeof(ompt_record_t);
-    ompt_buffer_size_g /= sizeof(ompt_record_t);
+    // get id of requesting thread
+    uint64_t tid = *ompt_tid_buffer;
 
-    ompt_target_event_buffer_g = (ompt_record_t*) buffers[0];
+    uint64_t buffer_bytes;
+    memcpy(&buffer_bytes, misc_data, sizeof(uint64_t));
 
+    // store thread-specific allocated buffer and its size
+    tdata[tid].buffer_size = buffer_bytes / sizeof(ompt_record_t);
+    tdata[tid].event_buffer = (ompt_record_t*) buffers[0];
+
+    // signal that host memory has been allocated
     pthread_mutex_lock(&mutex_waiting_buffer_request);
     buffer_request_condition = true;
     pthread_cond_signal(&waiting_buffer_request);
@@ -189,6 +191,21 @@ void ompt_signal_buffer_truncated(
     pthread_mutex_unlock(&mutex_waiting_buffer_complete);
 }
 
+COINATIVELIBEXPORT
+void ompt_get_buffer_pos(
+    uint32_t  buffer_count,
+    void**    buffers,
+    uint64_t* buffers_len,
+    void*     misc_data,
+    uint16_t  misc_data_len,
+    void*     return_data,
+    uint16_t  return_data_len
+)
+{
+    uint64_t tid = *((uint64_t*) misc_data);
+    *((uint64_t*) return_data) = tdata[tid].pos;
+    return_data_len = sizeof(uint64_t);
+}
 
 /* Register OMPT callbacks on device */
 

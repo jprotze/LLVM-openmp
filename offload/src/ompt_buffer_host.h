@@ -7,13 +7,14 @@ enum {
     c_ompt_func_restart_tracing,
     c_ompt_func_signal_buffer_allocated,
     c_ompt_func_signal_buffer_truncated,
+    c_ompt_func_get_buffer_pos,
     c_ompt_funcs_total
 };
 
 static const char *ompt_func_names[] = {
     "ompt_target_start_tracing", "ompt_target_stop_tracing",
     "ompt_target_restart_tracing", "ompt_signal_buffer_allocated",
-    "ompt_signal_buffer_truncated"};
+    "ompt_signal_buffer_truncated", "ompt_get_buffer_pos"};
 
 typedef struct {
     ompt_thread_id_t tid;
@@ -23,25 +24,23 @@ typedef struct {
 typedef struct {
     COIBUFFER buffer;
     uint64_t host_size;
-} thread_buffer_t;
+    ompt_record_t* host_ptr;
+} thread_data_t;
 
 struct Tracer {
     Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0) {}
 
   private:
-    // TODO: cleanup
     COIFUNCTION ompt_funcs[c_ompt_funcs_total];
-    ompt_target_buffer_request_callback_t request_callback;
-    ompt_target_buffer_complete_callback_t complete_callback;
-    ompt_record_t *host_ptrs[240];
-    COIBUFFER buffer_pos;
-    uint64_t pos[240];
-    thread_buffer_t tbuf[240];
-
     COIPROCESS m_proc;
     int m_device_id;
     int m_tracing;
     int m_paused;
+
+    ompt_target_buffer_request_callback_t request_callback;
+    ompt_target_buffer_complete_callback_t complete_callback;
+    std::map<uint64_t, thread_data_t> tdata;
+
     COIEVENT m_request_event;
     COIEVENT m_full_event;
     COIBUFFER m_tid_buffer;

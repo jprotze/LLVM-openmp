@@ -5,8 +5,6 @@
 #include "ompt_buffer_host.h"
 #include <pthread.h>
 
-#define MIC_MAX_THREAD_NUM 240
-
 extern Engine*  mic_engines;
 extern uint32_t mic_engines_total;
 
@@ -48,9 +46,9 @@ void* Tracer::signal_buffer_allocated(int tid) {
     COI_ACCESS_FLAGS flags = COI_SINK_WRITE;
     result = COI::PipelineRunFunction(
         pipeline, ompt_funcs[c_ompt_func_signal_buffer_allocated],
-        1, &tbuf[tid].buffer, &flags,
+        1, &tdata[tid].buffer, &flags,
         0, NULL,
-        &tbuf[tid].host_size, sizeof(uint64_t),
+        &tdata[tid].host_size, sizeof(uint64_t),
         NULL, 0,
         NULL);
 
@@ -146,13 +144,13 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
         ompt_thread_id_t tid;
         read_buffer(m_tid_buffer, &tid, sizeof(ompt_thread_id_t));
 
-        read_buffer(tbuf[tid].buffer,
-                host_ptrs[tid],
-                tbuf[tid].host_size);
+        read_buffer(tdata[tid].buffer,
+                tdata[tid].host_ptr,
+                tdata[tid].host_size);
         register_event(full_event_buffer,
                 &m_full_event);
 
-        complete_callback(host_ptrs[tid], device_id, tbuf[tid].host_size);
+        complete_callback(tdata[tid].host_ptr, device_id, tdata[tid].host_size);
 
         // We have to call a COIPipelineRunFunction here, but this would invoke
         // this callback again causing a deadlock. We can avoid
@@ -173,16 +171,16 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
         ompt_thread_id_t tid;
         read_buffer(m_tid_buffer, &tid, sizeof(ompt_thread_id_t));
 
-        request_callback(&host_ptrs[tid], &tbuf[tid].host_size);
+        request_callback(&tdata[tid].host_ptr, &tdata[tid].host_size);
 
         // create buffer and attach to liboffload process
         COIRESULT result = COI::BufferCreateFromMemory(
-                tbuf[tid].host_size,
+                tdata[tid].host_size,
                 COI_BUFFER_NORMAL,
                 0,
-                host_ptrs[tid],
+                tdata[tid].host_ptr,
                 1, &m_proc,
-                &tbuf[tid].buffer);
+                &tdata[tid].buffer);
 
         if (result != COI_SUCCESS) {
             printf("ERROR: Creating COIBuffer failed\n");
@@ -233,15 +231,6 @@ void Tracer::start() {
                 1, &m_proc,
                 &full_event_buffer);
 
-        // create buffer for positions
-        result = COI::BufferCreateFromMemory(
-                MIC_MAX_THREAD_NUM * sizeof(uint64_t),
-                COI_BUFFER_NORMAL,
-                0,
-                pos,
-                1, &m_proc,
-                &buffer_pos);
-
         result = COI::BufferCreate(
                 sizeof(ompt_thread_id_t),
                 COI_BUFFER_NORMAL,
@@ -268,11 +257,11 @@ void Tracer::start() {
         COIPIPELINE pipeline = create_pipeline();
 
         // transfer the event buffers to device
-        COIBUFFER event_buffers[] = { request_event_buffer, full_event_buffer, buffer_pos, m_tid_buffer };
-        COI_ACCESS_FLAGS event_buffers_flags[] = { COI_SINK_WRITE, COI_SINK_WRITE, COI_SINK_WRITE, COI_SINK_WRITE };
+        COIBUFFER event_buffers[] = { request_event_buffer, full_event_buffer, m_tid_buffer };
+        COI_ACCESS_FLAGS event_buffers_flags[] = { COI_SINK_WRITE, COI_SINK_WRITE, COI_SINK_WRITE };
         result = COI::PipelineRunFunction(
                 pipeline, ompt_funcs[c_ompt_func_start_tracing],
-                4, event_buffers, event_buffers_flags,
+                3, event_buffers, event_buffers_flags,
                 0, NULL,
                 NULL, 0,
                 NULL, 0,
@@ -345,28 +334,31 @@ void Tracer::pause() {
 }
 
 void Tracer::flush() {
-    COIRESULT result = COI::BufferRead(
-            buffer_pos,
-            0,
-            &pos,
-            240 * sizeof(uint64_t),
-            COI_COPY_USE_DMA,
+    COIPIPELINE pipeline = create_pipeline();
+
+    for (std::map<uint64_t, thread_data_t>::iterator it = tdata.begin();
+            it != tdata.end(); ++it) {
+
+        uint64_t pos;
+        COIRESULT result = COI::PipelineRunFunction(
+            pipeline, ompt_funcs[c_ompt_func_get_buffer_pos],
+            0, NULL, NULL,
             0, NULL,
-            COI_EVENT_SYNC);
+            &it->first, sizeof(uint64_t),
+            &pos, sizeof(uint64_t),
+            NULL);
 
-
-    if (result != COI_SUCCESS) {
-        printf("ERROR: Running pipeline function failed\n");
-    }
-
-    for (int i=0; i < 240; i++) {
-        if (pos[i] != 0) {
-            read_buffer(tbuf[i].buffer, host_ptrs[i], pos[i] * sizeof(ompt_record_t));
+        if (pos != 0) {
+            read_buffer(it->second.buffer,
+                        tdata[it->first].host_ptr,
+                        pos * sizeof(ompt_record_t));
 
             complete_callback(
-                        host_ptrs[i],
+                        tdata[it->first].host_ptr,
                         m_device_id,
-                        pos[i] * sizeof(ompt_record_t));
+                        pos * sizeof(ompt_record_t));
         }
     }
+
+    COI::PipelineDestroy(pipeline);
 }

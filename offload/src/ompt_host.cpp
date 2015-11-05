@@ -1,5 +1,4 @@
-#include "offload_util.h"
-#include "offload_host.h"
+#include "offload_common.h"
 #include "ompt_host.h"
 #include "ompt_buffer_host.h"
 
@@ -18,7 +17,6 @@ void __ompt_target_initialize()
     }
 }
 
-
 static inline uint64_t increment_id(uint64_t *ptr)
 {
 #ifndef TARGET_WINNT
@@ -26,12 +24,6 @@ static inline uint64_t increment_id(uint64_t *ptr)
 #else // TARGET_WINNT
     return _InterlockedIncrement(ptr);
 #endif // TARGET_WINNT
-}
-
-ompt_task_id_t __ompt_target_task_id_new()
-{
-    static uint64_t ompt_target_task_id = 1;
-    return increment_id(&ompt_target_task_id);
 }
 
 int __ompt_recording_start(
@@ -54,4 +46,10 @@ int __ompt_recording_stop(int device_id) {
     tracer.stop();
 
     return 0;
+}
+
+ompt_target_activity_id_t ompt_target_activity_id_new()
+{
+    static uint64_t ompt_target_activity_id = 1;
+    return increment_id(&ompt_target_activity_id);
 }

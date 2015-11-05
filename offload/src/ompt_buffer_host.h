@@ -1,6 +1,8 @@
 #ifndef OMPT_BUFFER_HOST_H_INCLUDED
 #define OMPT_BUFFER_HOST_H_INCLUDED
 
+#include <map>
+
 enum {
     c_ompt_func_start_tracing = 0,
     c_ompt_func_stop_tracing,

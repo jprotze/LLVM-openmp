@@ -1,4 +1,5 @@
 #include "offload_common.h"
+#include "offload_host.h"
 #include "ompt_host.h"
 #include "ompt_buffer_host.h"
 

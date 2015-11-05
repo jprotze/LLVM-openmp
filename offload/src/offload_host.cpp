@@ -2234,8 +2234,9 @@ bool OffloadDescriptor::offload(
         for (int i = 0; i < m_vars_total; i++) {
             if (m_vars[i].direction.in) {
                 switch (m_vars[i].type.dst) {
+                    case c_data:
                     case c_cean_var_ptr:
-                        item->host_addr = NULL; // FIXME
+                        item->host_addr = offload_get_src_base(m_vars[i].ptr, m_vars[i].type.src);
                         item->device_addr = NULL; // FIXME
                         item->bytes = m_vars[i].size;
                         item->mapping_flags = ompt_target_map_flag_to;
@@ -2304,8 +2305,13 @@ bool OffloadDescriptor::offload(
         for (int i = 0; i < m_vars_total; i++) {
             if (m_vars[i].direction.out) {
                 switch (m_vars[i].type.src) {
+                    case c_data:
                     case c_cean_var_ptr:
-                        item->host_addr = NULL; // FIXME
+                        item->host_addr = offload_get_src_base(
+                            m_vars[i].into ?
+                                static_cast<char*>(m_vars[i].into) :
+                                static_cast<char*>(m_vars[i].ptr),
+                            m_vars[i].type.dst);
                         item->device_addr = NULL; // FIXME
                         item->bytes = m_vars[i].size;
                         item->mapping_flags = ompt_target_map_flag_from;

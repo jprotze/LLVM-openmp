@@ -77,116 +77,110 @@
     macro (ompt_state_undefined, 0x70)       /* undefined thread state */
 
 
-#define FOREACH_OMPT_EVENT(macro)                                                                                 \
-                                                                                                                  \
-    /*--- Mandatory Events ---*/                                                                                  \
-    macro (ompt_event_parallel_begin,           ompt_new_parallel_callback_t,     1) /* parallel begin */         \
-    macro (ompt_event_parallel_end,             ompt_end_parallel_callback_t,     2) /* parallel end */           \
-                                                                                                                  \
-    macro (ompt_event_task_begin,               ompt_new_task_callback_t,         3) /* task begin */             \
-    macro (ompt_event_task_end,                 ompt_task_callback_t,             4) /* task destroy */           \
-                                                                                                                  \
-    macro (ompt_event_thread_begin,             ompt_thread_type_callback_t,      5) /* thread begin */           \
-    macro (ompt_event_thread_end,               ompt_thread_type_callback_t,      6) /* thread end */             \
-                                                                                                                  \
-    macro (ompt_event_control,                  ompt_control_callback_t,          7) /* support control calls */  \
-                                                                                                                  \
-    macro (ompt_event_runtime_shutdown,         ompt_callback_t,                  8) /* runtime shutdown */       \
-                                                                                                                  \
-    /*--- Optional Events (blame shifting, ompt_event_unimplemented) ---*/                                        \
-    macro (ompt_event_idle_begin,               ompt_thread_callback_t,           9) /* begin idle state */       \
-    macro (ompt_event_idle_end,                 ompt_thread_callback_t,          10) /* end idle state */         \
-                                                                                                                  \
-    macro (ompt_event_wait_barrier_begin,       ompt_parallel_callback_t,        11) /* begin wait at barrier */  \
-    macro (ompt_event_wait_barrier_end,         ompt_parallel_callback_t,        12) /* end wait at barrier */    \
-                                                                                                                  \
-    macro (ompt_event_wait_taskwait_begin,      ompt_parallel_callback_t,        13) /* begin wait at taskwait */ \
-    macro (ompt_event_wait_taskwait_end,        ompt_parallel_callback_t,        14) /* end wait at taskwait */   \
-                                                                                                                  \
-    macro (ompt_event_wait_taskgroup_begin,     ompt_parallel_callback_t,        15) /* begin wait at taskgroup */\
-    macro (ompt_event_wait_taskgroup_end,       ompt_parallel_callback_t,        16) /* end wait at taskgroup */  \
-                                                                                                                  \
-    macro (ompt_event_release_lock,             ompt_wait_callback_t,            17) /* lock release */           \
-    macro (ompt_event_release_nest_lock_last,   ompt_wait_callback_t,            18) /* last nest lock release */ \
-    macro (ompt_event_release_critical,         ompt_wait_callback_t,            19) /* critical release */       \
-                                                                                                                  \
-    macro (ompt_event_release_atomic,           ompt_wait_callback_t,            20) /* atomic release */         \
-                                                                                                                  \
-    macro (ompt_event_release_ordered,          ompt_wait_callback_t,            21) /* ordered release */        \
-                                                                                                                  \
-    /*--- Optional Events (synchronous events, ompt_event_unimplemented) --- */                                   \
-    macro (ompt_event_implicit_task_begin,      ompt_parallel_callback_t,        22) /* implicit task begin   */  \
-    macro (ompt_event_implicit_task_end,        ompt_parallel_callback_t,        23) /* implicit task end  */     \
-                                                                                                                  \
-    macro (ompt_event_initial_task_begin,       ompt_parallel_callback_t,        24) /* initial task begin   */   \
-    macro (ompt_event_initial_task_end,         ompt_parallel_callback_t,        25) /* initial task end  */      \
-                                                                                                                  \
-    macro (ompt_event_task_switch,              ompt_task_switch_callback_t,     26) /* task switch */            \
-                                                                                                                  \
-    macro (ompt_event_loop_begin,               ompt_new_workshare_callback_t,   27) /* task at loop begin */     \
-    macro (ompt_event_loop_end,                 ompt_parallel_callback_t,        28) /* task at loop end */       \
-                                                                                                                  \
-    macro (ompt_event_sections_begin,           ompt_new_workshare_callback_t,   29) /* task at sections begin  */\
-    macro (ompt_event_sections_end,             ompt_parallel_callback_t,        30) /* task at sections end */   \
-                                                                                                                  \
-    macro (ompt_event_single_in_block_begin,    ompt_new_workshare_callback_t,   31) /* task at single begin*/    \
-    macro (ompt_event_single_in_block_end,      ompt_parallel_callback_t,        32) /* task at single end */     \
-                                                                                                                  \
-    macro (ompt_event_single_others_begin,      ompt_parallel_callback_t,        33) /* task at single begin */   \
-    macro (ompt_event_single_others_end,        ompt_parallel_callback_t,        34) /* task at single end */     \
-                                                                                                                  \
-    macro (ompt_event_workshare_begin,          ompt_new_workshare_callback_t,   35) /* task at workshare begin */\
-    macro (ompt_event_workshare_end,            ompt_parallel_callback_t,        36) /* task at workshare end */  \
-                                                                                                                  \
-    macro (ompt_event_master_begin,             ompt_parallel_callback_t,        37) /* task at master begin */   \
-    macro (ompt_event_master_end,               ompt_parallel_callback_t,        38) /* task at master end */     \
-                                                                                                                  \
-    macro (ompt_event_barrier_begin,            ompt_parallel_callback_t,        39) /* task at barrier begin  */ \
-    macro (ompt_event_barrier_end,              ompt_parallel_callback_t,        40) /* task at barrier end */    \
-                                                                                                                  \
-    macro (ompt_event_taskwait_begin,           ompt_parallel_callback_t,        41) /* task at taskwait begin */ \
-    macro (ompt_event_taskwait_end,             ompt_parallel_callback_t,        42) /* task at task wait end */  \
-                                                                                                                  \
-    macro (ompt_event_taskgroup_begin,          ompt_parallel_callback_t,        43) /* task at taskgroup begin */\
-    macro (ompt_event_taskgroup_end,            ompt_parallel_callback_t,        44) /* task at taskgroup end */  \
-                                                                                                                  \
-    macro (ompt_event_release_nest_lock_prev,   ompt_wait_callback_t,            45) /* prev nest lock release */ \
-                                                                                                                  \
-    macro (ompt_event_wait_lock,                ompt_wait_callback_t,            46) /* lock wait */              \
-    macro (ompt_event_wait_nest_lock,           ompt_wait_callback_t,            47) /* nest lock wait */         \
-    macro (ompt_event_wait_critical,            ompt_wait_callback_t,            48) /* critical wait */          \
-    macro (ompt_event_wait_atomic,              ompt_wait_callback_t,            49) /* atomic wait */            \
-    macro (ompt_event_wait_ordered,             ompt_wait_callback_t,            50) /* ordered wait */           \
-                                                                                                                  \
-    macro (ompt_event_acquired_lock,            ompt_wait_callback_t,            51) /* lock acquired */          \
-    macro (ompt_event_acquired_nest_lock_first, ompt_wait_callback_t,            52) /* 1st nest lock acquired */ \
-    macro (ompt_event_acquired_nest_lock_next,  ompt_wait_callback_t,            53) /* next nest lock acquired*/ \
-    macro (ompt_event_acquired_critical,        ompt_wait_callback_t,            54) /* critical acquired */      \
-    macro (ompt_event_acquired_atomic,          ompt_wait_callback_t,            55) /* atomic acquired */        \
-    macro (ompt_event_acquired_ordered,         ompt_wait_callback_t,            56) /* ordered acquired */       \
-                                                                                                                  \
-    macro (ompt_event_init_lock,                ompt_wait_callback_t,            57) /* lock init */              \
-    macro (ompt_event_init_nest_lock,           ompt_wait_callback_t,            58) /* nest lock init */         \
-                                                                                                                  \
-    macro (ompt_event_destroy_lock,             ompt_wait_callback_t,            59) /* lock destruction */       \
-    macro (ompt_event_destroy_nest_lock,        ompt_wait_callback_t,            60) /* nest lock destruction */  \
-                                                                                                                  \
-    macro (ompt_event_flush,                    ompt_callback_t,                 61) /* after executing flush */  \
-                                                                                                                  \
-    /*--- Mandatory Events (target task events) ---*/                                                             \
-    macro (ompt_event_target_task_begin,        ompt_new_target_task_callback_t, 62) /* target begin */           \
-    macro (ompt_event_target_task_end,          ompt_task_callback_t,            63) /* target end */             \
-                                                                                                                  \
-    /*--- Optional Events (target data, update, map) ---*/                                                        \
-    macro (ompt_event_target_data_begin,        ompt_new_target_data_callback_t, 64) /* target data begin */      \
-    macro (ompt_event_target_data_end,          ompt_task_callback_t,            65) /* target data end */        \
-                                                                                                                  \
-    macro (ompt_event_target_update_begin,      ompt_new_target_task_callback_t, 66) /* target update begin */    \
-    macro (ompt_event_target_update_end,        ompt_task_callback_t,            67) /* target update end */      \
-                                                                                                                  \
-    macro (ompt_event_target_data_map_begin,    ompt_new_data_map_callback_t,    68) /* before data mapping  */   \
-    macro (ompt_event_target_data_map_end,      ompt_task_callback_t,            69) /* after data mapping */     \
-    macro (ompt_event_target_data_map_done,     ompt_data_map_done_callback_t,   70) /* after map operation finished on device */
+#define FOREACH_OMPT_EVENT(macro)                                                                                       \
+                                                                                                                        \
+    /*--- Mandatory Events ---*/                                                                                        \
+    macro (ompt_event_parallel_begin,           ompt_new_parallel_callback_t,           1) /* parallel begin */         \
+    macro (ompt_event_parallel_end,             ompt_end_parallel_callback_t,           2) /* parallel end */           \
+                                                                                                                        \
+    macro (ompt_event_task_begin,               ompt_new_task_callback_t,               3) /* task begin */             \
+    macro (ompt_event_task_end,                 ompt_task_callback_t,                   4) /* task destroy */           \
+                                                                                                                        \
+    macro (ompt_event_target_task_begin,        ompt_target_task_begin_callback_t,     62) /* target task launch */     \
+    macro (ompt_event_target_task_end,          ompt_target_task_end_callback_t,       63) /* target task end */        \
+                                                                                                                        \
+    macro (ompt_event_thread_begin,             ompt_thread_type_callback_t,            5) /* thread begin */           \
+    macro (ompt_event_thread_end,               ompt_thread_type_callback_t,            6) /* thread end */             \
+                                                                                                                        \
+    macro (ompt_event_control,                  ompt_control_callback_t,                7) /* support control calls */  \
+                                                                                                                        \
+    macro (ompt_event_runtime_shutdown,         ompt_callback_t,                        8) /* runtime shutdown */       \
+                                                                                                                        \
+    /*--- Optional Events (blame shifting, ompt_event_unimplemented) ---*/                                              \
+    macro (ompt_event_idle_begin,               ompt_thread_callback_t,                 9) /* begin idle state */       \
+    macro (ompt_event_idle_end,                 ompt_thread_callback_t,                10) /* end idle state */         \
+                                                                                                                        \
+    macro (ompt_event_wait_barrier_begin,       ompt_parallel_callback_t,              11) /* begin wait at barrier */  \
+    macro (ompt_event_wait_barrier_end,         ompt_parallel_callback_t,              12) /* end wait at barrier */    \
+                                                                                                                        \
+    macro (ompt_event_wait_taskwait_begin,      ompt_parallel_callback_t,              13) /* begin wait at taskwait */ \
+    macro (ompt_event_wait_taskwait_end,        ompt_parallel_callback_t,              14) /* end wait at taskwait */   \
+                                                                                                                        \
+    macro (ompt_event_wait_taskgroup_begin,     ompt_parallel_callback_t,              15) /* begin wait at taskgroup */\
+    macro (ompt_event_wait_taskgroup_end,       ompt_parallel_callback_t,              16) /* end wait at taskgroup */  \
+                                                                                                                        \
+    macro (ompt_event_release_lock,             ompt_wait_callback_t,                  17) /* lock release */           \
+    macro (ompt_event_release_nest_lock_last,   ompt_wait_callback_t,                  18) /* last nest lock release */ \
+    macro (ompt_event_release_critical,         ompt_wait_callback_t,                  19) /* critical release */       \
+                                                                                                                        \
+    macro (ompt_event_release_atomic,           ompt_wait_callback_t,                  20) /* atomic release */         \
+                                                                                                                        \
+    macro (ompt_event_release_ordered,          ompt_wait_callback_t,                  21) /* ordered release */        \
+                                                                                                                        \
+    /*--- Optional Events (synchronous events, ompt_event_unimplemented) --- */                                         \
+    macro (ompt_event_implicit_task_begin,      ompt_parallel_callback_t,              22) /* implicit task begin   */  \
+    macro (ompt_event_implicit_task_end,        ompt_parallel_callback_t,              23) /* implicit task end  */     \
+                                                                                                                        \
+    macro (ompt_event_initial_task_begin,       ompt_parallel_callback_t,              24) /* initial task begin   */   \
+    macro (ompt_event_initial_task_end,         ompt_parallel_callback_t,              25) /* initial task end  */      \
+                                                                                                                        \
+    macro (ompt_event_task_switch,              ompt_task_switch_callback_t,           26) /* task switch */            \
+                                                                                                                        \
+    macro (ompt_event_loop_begin,               ompt_new_workshare_callback_t,         27) /* task at loop begin */     \
+    macro (ompt_event_loop_end,                 ompt_parallel_callback_t,              28) /* task at loop end */       \
+                                                                                                                        \
+    macro (ompt_event_sections_begin,           ompt_new_workshare_callback_t,         29) /* task at sections begin  */\
+    macro (ompt_event_sections_end,             ompt_parallel_callback_t,              30) /* task at sections end */   \
+                                                                                                                        \
+    macro (ompt_event_single_in_block_begin,    ompt_new_workshare_callback_t,         31) /* task at single begin*/    \
+    macro (ompt_event_single_in_block_end,      ompt_parallel_callback_t,              32) /* task at single end */     \
+                                                                                                                        \
+    macro (ompt_event_single_others_begin,      ompt_parallel_callback_t,              33) /* task at single begin */   \
+    macro (ompt_event_single_others_end,        ompt_parallel_callback_t,              34) /* task at single end */     \
+                                                                                                                        \
+    macro (ompt_event_workshare_begin,          ompt_new_workshare_callback_t,         35) /* task at workshare begin */\
+    macro (ompt_event_workshare_end,            ompt_parallel_callback_t,              36) /* task at workshare end */  \
+                                                                                                                        \
+    macro (ompt_event_master_begin,             ompt_parallel_callback_t,              37) /* task at master begin */   \
+    macro (ompt_event_master_end,               ompt_parallel_callback_t,              38) /* task at master end */     \
+                                                                                                                        \
+    macro (ompt_event_barrier_begin,            ompt_parallel_callback_t,              39) /* task at barrier begin  */ \
+    macro (ompt_event_barrier_end,              ompt_parallel_callback_t,              40) /* task at barrier end */    \
+                                                                                                                        \
+    macro (ompt_event_taskwait_begin,           ompt_parallel_callback_t,              41) /* task at taskwait begin */ \
+    macro (ompt_event_taskwait_end,             ompt_parallel_callback_t,              42) /* task at task wait end */  \
+                                                                                                                        \
+    macro (ompt_event_taskgroup_begin,          ompt_parallel_callback_t,              43) /* task at taskgroup begin */\
+    macro (ompt_event_taskgroup_end,            ompt_parallel_callback_t,              44) /* task at taskgroup end */  \
+                                                                                                                        \
+    macro (ompt_event_release_nest_lock_prev,   ompt_wait_callback_t,                  45) /* prev nest lock release */ \
+                                                                                                                        \
+    macro (ompt_event_wait_lock,                ompt_wait_callback_t,                  46) /* lock wait */              \
+    macro (ompt_event_wait_nest_lock,           ompt_wait_callback_t,                  47) /* nest lock wait */         \
+    macro (ompt_event_wait_critical,            ompt_wait_callback_t,                  48) /* critical wait */          \
+    macro (ompt_event_wait_atomic,              ompt_wait_callback_t,                  49) /* atomic wait */            \
+    macro (ompt_event_wait_ordered,             ompt_wait_callback_t,                  50) /* ordered wait */           \
+                                                                                                                        \
+    macro (ompt_event_acquired_lock,            ompt_wait_callback_t,                  51) /* lock acquired */          \
+    macro (ompt_event_acquired_nest_lock_first, ompt_wait_callback_t,                  52) /* 1st nest lock acquired */ \
+    macro (ompt_event_acquired_nest_lock_next,  ompt_wait_callback_t,                  53) /* next nest lock acquired*/ \
+    macro (ompt_event_acquired_critical,        ompt_wait_callback_t,                  54) /* critical acquired */      \
+    macro (ompt_event_acquired_atomic,          ompt_wait_callback_t,                  55) /* atomic acquired */        \
+    macro (ompt_event_acquired_ordered,         ompt_wait_callback_t,                  56) /* ordered acquired */       \
+                                                                                                                        \
+    macro (ompt_event_init_lock,                ompt_wait_callback_t,                  57) /* lock init */              \
+    macro (ompt_event_init_nest_lock,           ompt_wait_callback_t,                  58) /* nest lock init */         \
+                                                                                                                        \
+    macro (ompt_event_destroy_lock,             ompt_wait_callback_t,                  59) /* lock destruction */       \
+    macro (ompt_event_destroy_nest_lock,        ompt_wait_callback_t,                  60) /* nest lock destruction */  \
+                                                                                                                        \
+    macro (ompt_event_flush,                    ompt_callback_t,                       61) /* after executing flush */  \
+                                                                                                                        \
+    macro (ompt_event_target_data_begin,        ompt_target_data_begin_callback_t,     64) /* target data begin */      \
+    macro (ompt_event_target_data_end,          ompt_task_callback_t,                  65) /* target data end */        \
+                                                                                                                        \
+    macro (ompt_event_target_data_map_begin,    ompt_target_data_map_begin_callback_t, 66) /* before data mapping  */   \
+    macro (ompt_event_target_data_map_end,      ompt_target_data_map_end_callback_t,   67) /* after data mapping */     \
 
 
 /*****************************************************************************
@@ -208,6 +202,8 @@ typedef uint64_t ompt_parallel_id_t;
 
 typedef uint64_t ompt_wait_id_t;
 #define ompt_wait_id_none ((ompt_wait_id_t) 0)         /* non-standard */
+
+typedef uint64_t ompt_target_activity_id_t; /* ID of an activity on a device */
 
 
 /*---------------------
@@ -286,6 +282,13 @@ typedef enum {
     ompt_invoker_runtime = 1          /* runtime invokes master task  */
 } ompt_invoker_t;
 
+typedef enum ompt_target_task_type_e {
+    ompt_target_task_target = 1,
+    ompt_target_task_enter_data = 2,
+    ompt_target_task_exit_data = 3,
+    ompt_target_task_update = 4
+} ompt_target_task_type_t;
+
 typedef enum {
     // a three bit field 0..7 for map type to/from/tofrom/alloc/release/delete
     ompt_target_map_flag_to      = 1,
@@ -352,38 +355,43 @@ typedef void (*ompt_new_task_callback_t) (
     void *task_function               /* pointer to outlined function */
 );
 
-typedef void (*ompt_new_target_task_callback_t) (
-    ompt_task_id_t parent_task_id,    /* id of parent task            */
+typedef void (*ompt_target_task_begin_callback_t) (
+    ompt_task_id_t parent_task_id,    /* ID of parent task            */
     ompt_frame_t *parent_task_frame,  /* frame data for parent task   */
-    ompt_task_id_t target_task_id,    /* id of target task            */
-    int device_id,                    /* id of the device             */
-    void *task_function               /* pointer to outlined function */
+    ompt_task_id_t host_task_id,      /* ID of target task on host    */
+    int device_id,                    /* ID of the device             */
+    void *target_task_code,           /* ptr to target code           */
+    ompt_target_task_type_t task_type /* the type of the target task  */
+);
+
+typedef void (*ompt_target_task_end_callback_t) (
+    ompt_task_id_t host_task_id       /* ID of target task on host    */
 );
 
 /* target device */
-typedef void (*ompt_new_target_data_callback_t) (
-    ompt_task_id_t task_id,           /* ID of encountering task       */
-    int device_id,                    /* ID of the device              */
-    void *target_data_code            /* ptr to target data code       */
+typedef void (*ompt_target_data_begin_callback_t) (
+    ompt_task_id_t task_id,           /* ID of encountering task      */
+    int device_id,                    /* ID of the device             */
+    void *codeptr_ra                  /* return address of api call   */
+);
+typedef struct ompt_target_map_entry_s {
+    void *host_addr;                  /* host address of the data     */
+    void *device_addr;                /* device address of the data   */
+    size_t bytes;                     /* number of bytes mapped       */
+    uint32_t mapping_flags;           /* sync/async, to/from          */
+} ompt_target_map_entry_t;
+
+typedef void (*ompt_target_data_map_begin_callback_t) (
+    ompt_task_id_t task_id,           /* ID of encountering task      */
+    int device_id,                    /* ID of the device             */
+    ompt_target_map_entry_t *items,   /* the items to be mapped       */
+    uint32_t nitems,                  /* the number of items to be mapped */
+    ompt_target_activity_id_t map_id  /* ID for map event             */
 );
 
-typedef void (*ompt_new_data_map_callback_t) (
-    ompt_task_id_t task_id,           /* ID of encountering task       */
-    int device_id,                    /* ID of the device              */
-    void *host_addr,                  /* host address of the data      */
-    void *device_addr,                /* device address of the data    */
-    size_t bytes,                     /* number of bytes mapped        */
-    uint32_t mapping_flags,           /* sync/async, to/from           */
-    void *target_map_code             /* ptr to target map code        */
-);
-
-typedef void (*ompt_data_map_done_callback_t) (
-    ompt_task_id_t task_id,           /* ID of current task            */
-    int device_id,                    /* ID of the device              */
-    void *host_addr,                  /* host address of the data      */
-    void *device_addr,                /* device address of the data    */
-    size_t bytes,                     /* number of bytes mapped        */
-    uint32_t mapping_flags            /* sync/async, to/from           */
+typedef void (*ompt_target_data_map_end_callback_t) (
+    int device_id,                    /* ID of the device             */
+    ompt_target_activity_id_t map_id  /* ID for map event             */
 );
 
 /* program */

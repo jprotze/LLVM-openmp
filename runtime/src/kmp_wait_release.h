@@ -178,12 +178,14 @@ static inline void __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_
         if (__kmp_tasking_mode != tskm_immediate_exec) {
             task_team = this_thr->th.th_task_team;
             if (task_team != NULL) {
-                if (!TCR_SYNC_4(task_team->tt.tt_active)) {
+                if (TCR_SYNC_4(task_team->tt.tt_active)) {
+                    if (KMP_TASKING_ENABLED(task_team))
+                        flag->execute_tasks(this_thr, th_gtid, final_spin, &tasks_completed
+                                            USE_ITT_BUILD_ARG(itt_sync_obj), 0);
+                }
+                else {
                     KMP_DEBUG_ASSERT(!KMP_MASTER_TID(this_thr->th.th_info.ds.ds_tid));
-                    __kmp_unref_task_team(task_team, this_thr);
-                } else if (KMP_TASKING_ENABLED(task_team)) {
-                    flag->execute_tasks(this_thr, th_gtid, final_spin, &tasks_completed
-                                        USE_ITT_BUILD_ARG(itt_sync_obj), 0);
+                    this_thr->th.th_task_team = NULL;
                 }
             } // if
         } // if
@@ -436,6 +438,7 @@ class kmp_flag_32 : public kmp_basic_flag<kmp_uint32> {
                             USE_ITT_BUILD_ARG(itt_sync_obj));
     }
     void release() { __kmp_release_template(this); }
+    flag_type get_ptr_type() { return flag32; }
 };
 
 class kmp_flag_64 : public kmp_basic_flag<kmp_uint64> {
@@ -456,6 +459,7 @@ class kmp_flag_64 : public kmp_basic_flag<kmp_uint64> {
                             USE_ITT_BUILD_ARG(itt_sync_obj));
     }
     void release() { __kmp_release_template(this); }
+    flag_type get_ptr_type() { return flag64; }
 };
 
 // Hierarchical 64-bit on-core barrier instantiation
@@ -549,6 +553,7 @@ public:
     }
     kmp_uint8 *get_stolen() { return NULL; }
     enum barrier_type get_bt() { return bt; }
+    flag_type get_ptr_type() { return flag_oncore; }
 };
 
 

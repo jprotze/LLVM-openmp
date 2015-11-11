@@ -2100,14 +2100,6 @@ typedef struct kmp_base_task_team {
 
     KMP_ALIGN_CACHE
     volatile kmp_uint32     tt_active;             /* is the team still actively executing tasks */
-
-    KMP_ALIGN_CACHE
-#if KMP_USE_INTERNODE_ALIGNMENT
-    kmp_int32               tt_padme[INTERNODE_CACHE_LINE/sizeof(kmp_int32)];
-#endif
-
-    volatile kmp_uint32     tt_ref_ct;             /* #threads accessing struct  */
-                                                   /* (not incl. master)         */
 } kmp_base_task_team_t;
 
 union KMP_ALIGN_CACHE kmp_task_team {
@@ -2426,7 +2418,6 @@ typedef struct kmp_base_global {
 
     int                 g_dynamic;
     enum dynamic_mode   g_dynamic_mode;
-
 } kmp_base_global_t;
 
 typedef union KMP_ALIGN_CACHE kmp_global {
@@ -2600,7 +2591,6 @@ extern kmp_uint32 __kmp_yielding_on;
 extern kmp_uint32 __kmp_yield_cycle;
 extern kmp_int32  __kmp_yield_on_count;
 extern kmp_int32  __kmp_yield_off_count;
-
 
 /* ------------------------------------------------------------------------- */
 extern int        __kmp_allThreadsSpecified;
@@ -2781,7 +2771,6 @@ extern void __kmp_exit_single( int gtid );
 
 extern void __kmp_parallel_deo( int *gtid_ref, int *cid_ref, ident_t *loc_ref );
 extern void __kmp_parallel_dxo( int *gtid_ref, int *cid_ref, ident_t *loc_ref );
-
 
 #ifdef USE_LOAD_BALANCE
 extern int  __kmp_get_load_balance( int );
@@ -3172,15 +3161,16 @@ int __kmp_execute_tasks_oncore(kmp_info_t *thread, kmp_int32 gtid, kmp_flag_onco
 #endif /* USE_ITT_BUILD */
                                kmp_int32 is_constrained);
 
+extern void __kmp_free_task_team( kmp_info_t *thread, kmp_task_team_t *task_team );
 extern void __kmp_reap_task_teams( void );
-extern void __kmp_unref_task_team( kmp_task_team_t *task_team, kmp_info_t *thread );
 extern void __kmp_wait_to_unref_task_teams( void );
-extern void __kmp_task_team_setup ( kmp_info_t *this_thr, kmp_team_t *team, int both, int always );
+extern void __kmp_task_team_setup ( kmp_info_t *this_thr, kmp_team_t *team, int always );
 extern void __kmp_task_team_sync  ( kmp_info_t *this_thr, kmp_team_t *team );
 extern void __kmp_task_team_wait  ( kmp_info_t *this_thr, kmp_team_t *team
 #if USE_ITT_BUILD
                                     , void * itt_sync_obj
 #endif /* USE_ITT_BUILD */
+                                    , int wait=1
 );
 extern void __kmp_tasking_barrier( kmp_team_t *team, kmp_info_t *thread, int gtid );
 

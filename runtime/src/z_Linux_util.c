@@ -1837,11 +1837,12 @@ static inline void __kmp_resume_template( int target_gtid, C *flag )
     status = pthread_mutex_lock( &th->th.th_suspend_mx.m_mutex );
     KMP_CHECK_SYSFAIL( "pthread_mutex_lock", status );
 
-    if (!flag) {
+    if (!flag) { // coming from __kmp_null_resume_wrapper
         flag = (C *)th->th.th_sleep_loc;
     }
 
-    if (!flag) {
+    // First, check if the flag is null or its type has changed. If so, someone else woke it up.
+    if (!flag || flag->get_type() != flag->get_ptr_type()) { // get_ptr_type simply shows what flag was cast to
         KF_TRACE( 5, ( "__kmp_resume_template: T#%d exiting, thread T#%d already awake: flag(%p)\n",
                        gtid, target_gtid, NULL ) );
         status = pthread_mutex_unlock( &th->th.th_suspend_mx.m_mutex );
@@ -2003,7 +2004,6 @@ __kmp_read_system_info( struct kmp_sys_info *info )
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
-
 void
 __kmp_read_system_time( double *delta )
 {
@@ -2154,7 +2154,6 @@ __kmp_runtime_initialize( void )
 
     /* Set up minimum number of threads to switch to TLS gtid */
     __kmp_tls_gtid_min = KMP_TLS_GTID_MIN;
-
 
     #ifdef BUILD_TV
         {

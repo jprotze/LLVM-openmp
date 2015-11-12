@@ -706,6 +706,8 @@ __kmp_init_hierarchical_barrier_thread(enum barrier_type bt, kmp_bstate_t *thr_b
         thr_bar->offset = 7-(tid-thr_bar->parent_tid-1);
         thr_bar->old_tid = tid;
         thr_bar->wait_flag = KMP_BARRIER_NOT_WAITING;
+        thr_bar->team = team;
+        thr_bar->parent_bar = &team->t.t_threads[thr_bar->parent_tid]->th.th_bar[bt].bb;
     }
     if (uninitialized || team_changed || tid_changed) {
         thr_bar->team = team;
@@ -1122,6 +1124,10 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
             //KMP_DEBUG_ASSERT( is_split == TRUE );  // #C69956
             this_thr->th.th_local.reduce_data = reduce_data;
         }
+
+        if (KMP_MASTER_TID(tid) && __kmp_tasking_mode != tskm_immediate_exec)
+            __kmp_task_team_setup(this_thr, team, 0); // use 0 to only setup the current team if nthreads > 1
+
         switch (__kmp_barrier_gather_pattern[bt]) {
         case bp_hyper_bar: {
             KMP_ASSERT(__kmp_barrier_gather_branch_bits[bt]); // don't set branch bits to 0; use linear
@@ -1153,7 +1159,6 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
             if (__kmp_tasking_mode != tskm_immediate_exec) {
                 __kmp_task_team_wait(this_thr, team
                                      USE_ITT_BUILD_ARG(itt_sync_obj) );
-                __kmp_task_team_setup(this_thr, team, 0, 0); // use 0,0 to only setup the current team if nthreads > 1
             }
 #if USE_DEBUGGER
             // Let the debugger know: All threads are arrived and starting leaving the barrier.
@@ -1261,7 +1266,7 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
                 KMP_DEBUG_ASSERT(this_thr->th.th_task_team->tt.tt_found_proxy_tasks == TRUE);
                 __kmp_task_team_wait(this_thr, team
                                                USE_ITT_BUILD_ARG(itt_sync_obj));
-                __kmp_task_team_setup(this_thr, team, 0, 0);
+                __kmp_task_team_setup(this_thr, team, 0);
 
 #if USE_ITT_BUILD
                 if (__itt_sync_create_ptr || KMP_ITT_DEBUG)
@@ -1575,7 +1580,7 @@ __kmp_fork_barrier(int gtid, int tid)
 #endif
 
         if (__kmp_tasking_mode != tskm_immediate_exec) {
-            __kmp_task_team_setup(this_thr, team, 1, 0);  // 1,0 indicates setup both task teams if nthreads > 1
+            __kmp_task_team_setup(this_thr, team, 0);  // 0 indicates setup current task team if nthreads > 1
         }
 
         /* The master thread may have changed its blocktime between the join barrier and the
@@ -1614,14 +1619,7 @@ __kmp_fork_barrier(int gtid, int tid)
 
     // Early exit for reaping threads releasing forkjoin barrier
     if (TCR_4(__kmp_global.g.g_done)) {
-        if (this_thr->th.th_task_team != NULL) {
-            if (KMP_MASTER_TID(tid)) {
-                TCW_PTR(this_thr->th.th_task_team, NULL);
-            }
-            else {
-                __kmp_unref_task_team(this_thr->th.th_task_team, this_thr);
-            }
-        }
+        this_thr->th.th_task_team = NULL;
 
 #if USE_ITT_BUILD && USE_ITT_NOTIFY
         if (__itt_sync_create_ptr || KMP_ITT_DEBUG) {

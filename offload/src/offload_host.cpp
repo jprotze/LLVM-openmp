@@ -2233,7 +2233,11 @@ bool OffloadDescriptor::offload(
                         item->host_addr = offload_get_src_base(m_vars[i].ptr, m_vars[i].type.src);
                         
                         PtrData* ptr_data = m_vars_extra[i].src_data;
-                        if (ptr_data != NULL) {
+                        if (!m_vars[i].flags.is_stack_buf && ptr_data != NULL) {
+                            // try to obtain address if not yet set
+                            if (ptr_data->mic_addr == 0) {
+                                init_mic_address(ptr_data);
+                            }
                             item->device_addr = (void*) ptr_data->mic_addr;
                         } else {
                             item->device_addr = NULL; // FIXME
@@ -2315,7 +2319,11 @@ bool OffloadDescriptor::offload(
                             m_vars[i].type.dst);
                         
                         PtrData* ptr_data = m_vars_extra[i].src_data;
-                        if (ptr_data != NULL) {
+                        if (!m_vars[i].flags.is_stack_buf && ptr_data != NULL) {
+                            // try to obtain address if not yet set
+                            if (ptr_data->mic_addr == 0) {
+                                init_mic_address(ptr_data);
+                            }
                             item->device_addr = (void*) ptr_data->mic_addr;
                         } else {
                             item->device_addr = NULL; // FIXME

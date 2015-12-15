@@ -2120,12 +2120,16 @@ __kmp_fork_call(
             // Store master's task_state on stack
             master_th->th.th_task_state_memo_stack[master_th->th.th_task_state_top] = master_th->th.th_task_state;
             master_th->th.th_task_state_top++;
+#if KMP_NESTED_HOT_TEAMS
             if (team == master_th->th.th_hot_teams[level].hot_team) { // Restore master's nested state if nested hot team
                 master_th->th.th_task_state = master_th->th.th_task_state_memo_stack[master_th->th.th_task_state_top];
             }
             else {
+#endif
                 master_th->th.th_task_state = 0;
+#if KMP_NESTED_HOT_TEAMS
             }
+#endif
         }
 #if !KMP_NESTED_HOT_TEAMS
         KMP_DEBUG_ASSERT((master_th->th.th_task_team == NULL) || (team == root->r.r_hot_team));
@@ -5029,7 +5033,7 @@ __kmp_allocate_team( kmp_root_t *root, int new_nproc, int max_nproc,
                 __kmp_initialize_info( team->t.t_threads[ f ], team, f, __kmp_gtid_from_tid( f, team ) );
             if (level) { // set th_task_state for new threads in nested hot team
                 // __kmp_initialize_info() no longer zeroes th_task_state, so we should only need to set the
-                // th_task_state for the new threads. th_task_state for master thread will not be accurate until 
+                // th_task_state for the new threads. th_task_state for master thread will not be accurate until
                 // after this in __kmp_fork_call(), so we look to the master's memo_stack to get the correct value.
                 for (f=old_nproc; f < team->t.t_nproc; ++f)
                     team->t.t_threads[f]->th.th_task_state = team->t.t_threads[0]->th.th_task_state_memo_stack[level];
@@ -5280,7 +5284,9 @@ __kmp_free_team( kmp_root_t *root, kmp_team_t *team  USE_NESTED_HOT_ARG(kmp_info
                         team->t.t_threads[f]->th.th_task_team = NULL;
                     }
                     KA_TRACE( 20, ( "__kmp_free_team: T#%d deactivating task_team %p on team %d\n", __kmp_get_gtid(), task_team, team->t.t_id ) );
+#if KMP_NESTED_HOT_TEAMS
                     __kmp_free_task_team( master, task_team );
+#endif
                     team->t.t_task_team[tt_idx] = NULL;
                 }
             }
@@ -5511,7 +5517,7 @@ __kmp_launch_thread( kmp_info_t *this_thr )
                     this_thr->th.ompt_thread_info.state = ompt_state_work_parallel;
                     // Initialize OMPT task id for implicit task.
                     int tid = __kmp_tid_from_gtid(gtid);
-                    (*pteam)->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id = 
+                    (*pteam)->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id =
                     __ompt_task_id_new(tid);
                 }
 #endif
@@ -5800,9 +5806,6 @@ __kmp_internal_end(void)
         // __kmp_init_parallel = 0), then __kmp_monitor will appear to
         // contain valid data, but it is only valid in the parent process,
         // not the child.
-        //
-        // One of the possible fixes for CQ138434 / CQ140126
-        // (used in 20091103_dreamworks patch)
         //
         // New behavior (201008): instead of keying off of the flag
         // __kmp_init_parallel, the monitor thread creation is keyed off
@@ -6952,20 +6955,49 @@ __kmp_push_num_teams( ident_t *id, int gtid, int num_teams, int num_threads )
     kmp_info_t *thr = __kmp_threads[gtid];
     KMP_DEBUG_ASSERT(num_teams >= 0);
     KMP_DEBUG_ASSERT(num_threads >= 0);
-    if( num_teams == 0 ) {
+
+    if( num_teams == 0 )
         num_teams = 1;    // default number of teams is 1.
+    if( num_teams > __kmp_max_nth ) { // if too many teams requested?
+        if ( !__kmp_reserve_warn ) {
+            __kmp_reserve_warn = 1;
+            __kmp_msg(
+                kmp_ms_warning,
+                KMP_MSG( CantFormThrTeam, num_teams, __kmp_max_nth ),
+                KMP_HNT( Unset_ALL_THREADS ),
+                __kmp_msg_null
+            );
+        }
+        num_teams = __kmp_max_nth;
     }
     // Set number of teams (number of threads in the outer "parallel" of the teams)
     thr->th.th_set_nproc = thr->th.th_teams_size.nteams = num_teams;
 
     // Remember the number of threads for inner parallel regions
-    if( num_threads > 0 ) {
-        thr->th.th_teams_size.nth = num_threads;
-    } else {
+    if( num_threads == 0 ) {
         if( !TCR_4(__kmp_init_middle) )
             __kmp_middle_initialize();  // get __kmp_avail_proc calculated
-        thr->th.th_teams_size.nth = __kmp_avail_proc / num_teams;
+        num_threads = __kmp_avail_proc / num_teams;
+        if( num_teams * num_threads > __kmp_max_nth ) {
+            // adjust num_threads w/o warning as it is not user setting
+            num_threads = __kmp_max_nth / num_teams;
+        }
+    } else {
+        if( num_teams * num_threads > __kmp_max_nth ) {
+            int new_threads = __kmp_max_nth / num_teams;
+            if ( !__kmp_reserve_warn ) { // user asked for too many threads
+                __kmp_reserve_warn = 1;  // that conflicts with OMP_THREAD_LIMIT
+                __kmp_msg(
+                    kmp_ms_warning,
+                    KMP_MSG( CantFormThrTeam, num_threads, new_threads ),
+                    KMP_HNT( Unset_ALL_THREADS ),
+                    __kmp_msg_null
+                );
+            }
+            num_threads = new_threads;
+        }
     }
+    thr->th.th_teams_size.nth = num_threads;
 }
 
 

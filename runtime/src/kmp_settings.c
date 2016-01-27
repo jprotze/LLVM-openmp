@@ -3873,6 +3873,12 @@ __kmp_stg_print_lock_block( kmp_str_buf_t * buffer, char const * name, void * da
 // KMP_LOCK_KIND
 // -------------------------------------------------------------------------------------------------
 
+#if KMP_USE_DYNAMIC_LOCK
+# define KMP_STORE_LOCK_SEQ(a) (__kmp_user_lock_seq = lockseq_##a)
+#else
+# define KMP_STORE_LOCK_SEQ(a)
+#endif
+
 static void
 __kmp_stg_parse_lock_kind( char const * name, char const * value, void * data ) {
     if ( __kmp_init_user_locks ) {
@@ -3892,13 +3898,13 @@ __kmp_stg_parse_lock_kind( char const * name, char const * value, void * data ) 
       || __kmp_str_match( "testand-set", 2, value )
       || __kmp_str_match( "testandset", 2, value ) ) {
         __kmp_user_lock_kind = lk_tas;
-        DYNA_STORE_LOCK_SEQ(tas);
+        KMP_STORE_LOCK_SEQ(tas);
     }
 #if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_ARM)
     else if ( __kmp_str_match( "futex", 1, value ) ) {
         if ( __kmp_futex_determine_capable() ) {
             __kmp_user_lock_kind = lk_futex;
-            DYNA_STORE_LOCK_SEQ(futex);
+            KMP_STORE_LOCK_SEQ(futex);
         }
         else {
             KMP_WARNING( FutexNotSupported, name, value );
@@ -3907,12 +3913,12 @@ __kmp_stg_parse_lock_kind( char const * name, char const * value, void * data ) 
 #endif
     else if ( __kmp_str_match( "ticket", 2, value ) ) {
         __kmp_user_lock_kind = lk_ticket;
-        DYNA_STORE_LOCK_SEQ(ticket);
+        KMP_STORE_LOCK_SEQ(ticket);
     }
     else if ( __kmp_str_match( "queuing", 1, value )
       || __kmp_str_match( "queue", 1, value ) ) {
         __kmp_user_lock_kind = lk_queuing;
-        DYNA_STORE_LOCK_SEQ(queuing);
+        KMP_STORE_LOCK_SEQ(queuing);
     }
     else if ( __kmp_str_match( "drdpa ticket", 1, value )
       || __kmp_str_match( "drdpa_ticket", 1, value )
@@ -3920,23 +3926,34 @@ __kmp_stg_parse_lock_kind( char const * name, char const * value, void * data ) 
       || __kmp_str_match( "drdpaticket", 1, value )
       || __kmp_str_match( "drdpa", 1, value ) ) {
         __kmp_user_lock_kind = lk_drdpa;
-        DYNA_STORE_LOCK_SEQ(drdpa);
+        KMP_STORE_LOCK_SEQ(drdpa);
     }
 #if KMP_USE_ADAPTIVE_LOCKS
     else if ( __kmp_str_match( "adaptive", 1, value )  ) {
         if( __kmp_cpuinfo.rtm ) { // ??? Is cpuinfo available here?
             __kmp_user_lock_kind = lk_adaptive;
-            DYNA_STORE_LOCK_SEQ(adaptive);
+            KMP_STORE_LOCK_SEQ(adaptive);
         } else {
             KMP_WARNING( AdaptiveNotSupported, name, value );
             __kmp_user_lock_kind = lk_queuing;
-            DYNA_STORE_LOCK_SEQ(queuing);
+            KMP_STORE_LOCK_SEQ(queuing);
         }
     }
 #endif // KMP_USE_ADAPTIVE_LOCKS
-#if KMP_USE_DYNAMIC_LOCK
+#if KMP_USE_DYNAMIC_LOCK && KMP_USE_TSX
+    else if ( __kmp_str_match("rtm", 1, value) ) {
+        if ( __kmp_cpuinfo.rtm ) {
+            __kmp_user_lock_kind = lk_rtm;
+            KMP_STORE_LOCK_SEQ(rtm);
+        } else {
+            KMP_WARNING( AdaptiveNotSupported, name, value );
+            __kmp_user_lock_kind = lk_queuing;
+            KMP_STORE_LOCK_SEQ(queuing);
+        }
+    }
     else if ( __kmp_str_match("hle", 1, value) ) {
-        DYNA_STORE_LOCK_SEQ(hle);
+        __kmp_user_lock_kind = lk_hle;
+        KMP_STORE_LOCK_SEQ(hle);
     }
 #endif
     else {
@@ -3960,6 +3977,16 @@ __kmp_stg_print_lock_kind( kmp_str_buf_t * buffer, char const * name, void * dat
 #if KMP_OS_LINUX && (KMP_ARCH_X86 || KMP_ARCH_X86_64)
         case lk_futex:
         value = "futex";
+        break;
+#endif
+
+#if KMP_USE_DYNAMIC_LOCK && KMP_USE_TSX
+        case lk_rtm:
+        value = "rtm";
+        break;
+
+        case lk_hle:
+        value = "hle";
         break;
 #endif
 
@@ -4046,7 +4073,7 @@ __kmp_stg_parse_adaptive_lock_props( const char *name, const char *value, void *
             }
 
             num = __kmp_str_to_int( buf, *next );
-            if ( num < 1 ) { // The number of retries should be > 0
+            if ( num < 0 ) { // The number of retries should be >= 0
                 msg = KMP_I18N_STR( ValueTooSmall );
                 num = 1;
             } else if ( num > KMP_INT_MAX ) {
@@ -4070,12 +4097,8 @@ __kmp_stg_parse_adaptive_lock_props( const char *name, const char *value, void *
         KMP_WARNING( EnvSyntaxError, name, value );
         return;
     }
-    if( max_retries != 0 ) {
-        __kmp_adaptive_backoff_params.max_soft_retries = max_retries;
-    }
-    if( max_badness != 0 ) {
-        __kmp_adaptive_backoff_params.max_badness = max_badness;
-    }
+    __kmp_adaptive_backoff_params.max_soft_retries = max_retries;
+    __kmp_adaptive_backoff_params.max_badness = max_badness;
 }
 
 
@@ -5229,7 +5252,7 @@ __kmp_env_initialize( char const * string ) {
                     else if ( ( __kmp_affinity_gran != affinity_gran_group )
                       && ( __kmp_affinity_gran != affinity_gran_fine )
                       && ( __kmp_affinity_gran != affinity_gran_thread ) ) {
-                        char *str = NULL;
+                        const char *str = NULL;
                         switch ( __kmp_affinity_gran ) {
                             case affinity_gran_core: str = "core"; break;
                             case affinity_gran_package: str = "package"; break;
@@ -5245,7 +5268,7 @@ __kmp_env_initialize( char const * string ) {
                         __kmp_affinity_gran = affinity_gran_core;
                     }
                     else if ( __kmp_affinity_gran == affinity_gran_group ) {
-                        char *str = NULL;
+                        const char *str = NULL;
                         switch ( __kmp_affinity_type ) {
                             case affinity_physical: str = "physical"; break;
                             case affinity_logical: str = "logical"; break;

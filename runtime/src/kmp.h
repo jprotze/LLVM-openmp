@@ -1671,9 +1671,9 @@ typedef struct kmp_disp {
 #define KMP_BARRIER_UNUSED_BIT  1       /* bit that must never be set for valid state */
 #define KMP_BARRIER_BUMP_BIT    2       /* lsb used for bump of go/arrived state */
 
-#define KMP_BARRIER_SLEEP_STATE         ((kmp_uint) (1 << KMP_BARRIER_SLEEP_BIT))
-#define KMP_BARRIER_UNUSED_STATE        ((kmp_uint) (1 << KMP_BARRIER_UNUSED_BIT))
-#define KMP_BARRIER_STATE_BUMP          ((kmp_uint) (1 << KMP_BARRIER_BUMP_BIT))
+#define KMP_BARRIER_SLEEP_STATE         (1 << KMP_BARRIER_SLEEP_BIT)
+#define KMP_BARRIER_UNUSED_STATE        (1 << KMP_BARRIER_UNUSED_BIT)
+#define KMP_BARRIER_STATE_BUMP          (1 << KMP_BARRIER_BUMP_BIT)
 
 #if (KMP_BARRIER_SLEEP_BIT >= KMP_BARRIER_BUMP_BIT)
 # error "Barrier sleep bit must be smaller than barrier bump bit"
@@ -2999,15 +2999,7 @@ extern kmp_uint32 __kmp_neq_4( kmp_uint32 value, kmp_uint32 checker );
 extern kmp_uint32 __kmp_lt_4(  kmp_uint32 value, kmp_uint32 checker );
 extern kmp_uint32 __kmp_ge_4(  kmp_uint32 value, kmp_uint32 checker );
 extern kmp_uint32 __kmp_le_4(  kmp_uint32 value, kmp_uint32 checker );
-
-extern kmp_uint32 __kmp_eq_8(  kmp_uint64 value, kmp_uint64 checker );
-extern kmp_uint32 __kmp_neq_8( kmp_uint64 value, kmp_uint64 checker );
-extern kmp_uint32 __kmp_lt_8(  kmp_uint64 value, kmp_uint64 checker );
-extern kmp_uint32 __kmp_ge_8(  kmp_uint64 value, kmp_uint64 checker );
-extern kmp_uint32 __kmp_le_8(  kmp_uint64 value, kmp_uint64 checker );
-
 extern kmp_uint32 __kmp_wait_yield_4( kmp_uint32 volatile * spinner, kmp_uint32 checker, kmp_uint32 (*pred) (kmp_uint32, kmp_uint32), void * obj );
-extern kmp_uint64 __kmp_wait_yield_8( kmp_uint64 volatile * spinner, kmp_uint64 checker, kmp_uint32 (*pred) (kmp_uint64, kmp_uint64), void * obj );
 
 class kmp_flag_32;
 class kmp_flag_64;
@@ -3331,6 +3323,10 @@ KMP_EXPORT void   __kmpc_end_ordered        ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_critical           ( ident_t *, kmp_int32 global_tid, kmp_critical_name * );
 KMP_EXPORT void   __kmpc_end_critical       ( ident_t *, kmp_int32 global_tid, kmp_critical_name * );
 
+#if OMP_41_ENABLED
+KMP_EXPORT void   __kmpc_critical_with_hint ( ident_t *, kmp_int32 global_tid, kmp_critical_name *, uintptr_t hint );
+#endif
+
 KMP_EXPORT kmp_int32  __kmpc_barrier_master ( ident_t *, kmp_int32 global_tid );
 KMP_EXPORT void   __kmpc_end_barrier_master ( ident_t *, kmp_int32 global_tid );
 
@@ -3437,6 +3433,11 @@ KMP_EXPORT void __kmpc_unset_lock( ident_t *loc, kmp_int32 gtid, void **user_loc
 KMP_EXPORT void __kmpc_unset_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock );
 KMP_EXPORT int __kmpc_test_lock( ident_t *loc, kmp_int32 gtid, void **user_lock );
 KMP_EXPORT int __kmpc_test_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock );
+
+#if OMP_41_ENABLED
+KMP_EXPORT void __kmpc_init_lock_with_hint( ident_t *loc, kmp_int32 gtid, void **user_lock, uintptr_t hint );
+KMP_EXPORT void __kmpc_init_nest_lock_with_hint( ident_t *loc, kmp_int32 gtid, void **user_lock, uintptr_t hint );
+#endif
 
 /* ------------------------------------------------------------------------ */
 

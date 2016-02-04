@@ -23,7 +23,6 @@
 #include "ompt-specific.h"
 #endif
 
-
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
@@ -463,6 +462,22 @@ __kmp_task_start( kmp_int32 gtid, kmp_task_t * task, kmp_taskdata_t * current_ta
             taskdata->ompt_task_info.function);
     }
 #endif
+#if OMP_40_ENABLED && OMPT_SUPPORT && OMPT_TRACE
+    /* OMPT emit all dependences if requested by the tool */
+    if (ompt_enabled && taskdata->ompt_task_info.ndeps > 0 &&
+        ompt_callbacks.ompt_callback(ompt_event_task_dependences))
+	{
+        ompt_callbacks.ompt_callback(ompt_event_task_dependences)(
+            taskdata->ompt_task_info.task_id,
+            taskdata->ompt_task_info.deps,
+            taskdata->ompt_task_info.ndeps
+        );
+		/* We can now free the allocated memory for the dependencies */
+		KMP_OMPT_DEPS_FREE (thread, taskdata->ompt_task_info.deps);
+        taskdata->ompt_task_info.deps = NULL;
+        taskdata->ompt_task_info.ndeps = 0;
+    }
+#endif /* OMP_40_ENABLED && OMPT_SUPPORT && OMPT_TRACE */
 
     return;
 }
@@ -691,12 +706,11 @@ __kmp_task_finish( kmp_int32 gtid, kmp_task_t *task, kmp_taskdata_t *resumed_tas
     }
 
     // Free this task and then ancestor tasks if they have no children.
+    // Restore th_current_task first as suggested by John:
+    // johnmc: if an asynchronous inquiry peers into the runtime system
+    // it doesn't see the freed task as the current task.
+    thread->th.th_current_task = resumed_task;
     __kmp_free_task_and_ancestors(gtid, taskdata, thread);
-
-    // FIXME johnmc: I this statement should be before the last one so if an
-    // asynchronous inquiry peers into the runtime system it doesn't see the freed
-    // task as the current task
-    __kmp_threads[ gtid ] -> th.th_current_task = resumed_task; // restore current_task
 
     // TODO: GEH - make sure root team implicit task is initialized properly.
     // KMP_DEBUG_ASSERT( resumed_task->td_flags.executing == 0 );
@@ -762,6 +776,10 @@ __kmp_task_init_ompt( kmp_taskdata_t * task, int tid, void * function )
         task->ompt_task_info.function = function;
         task->ompt_task_info.frame.exit_runtime_frame = NULL;
         task->ompt_task_info.frame.reenter_runtime_frame = NULL;
+#if OMP_40_ENABLED
+        task->ompt_task_info.ndeps = 0;
+        task->ompt_task_info.deps = NULL;
+#endif /* OMP_40_ENABLED */
     }
 }
 #endif
@@ -2476,7 +2494,6 @@ __kmp_wait_to_unref_task_teams(void)
 
     KMP_INIT_YIELD( spins );
 
-
     for (;;) {
         done = TRUE;
 
@@ -2529,8 +2546,6 @@ __kmp_wait_to_unref_task_teams(void)
         KMP_YIELD( TCR_4(__kmp_nth) > __kmp_avail_proc );
         KMP_YIELD_SPIN( spins );        // Yields only if KMP_LIBRARY=throughput
     }
-
-
 }
 
 

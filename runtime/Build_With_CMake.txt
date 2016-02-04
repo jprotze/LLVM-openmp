@@ -144,9 +144,9 @@ by default for Windows and Mac, but on for other Unix based operating
 systems.
 
 -DLIBOMP_ENABLE_SHARED=on|off
-Shared library instead of static library? (Note: static libraries are supported 
-on Windows). If LIBOMP_ENABLE_SHARED is off, then static OpenMP libraries will be 
-built instead of dynamic ones.
+Shared library instead of static library? (Note: static libraries are not
+supported on Windows). If LIBOMP_ENABLE_SHARED is off, then static OpenMP
+libraries will be built instead of dynamic ones.
 
 -DLIBOMP_OMPT_SUPPORT=off|on
 Should OMPT support be included in the build? (Not supported on Windows)

@@ -277,9 +277,13 @@ if(LIBOMP_STATS)
   set(LIBOMP_USE_STDCPPLIB TRUE)
 endif()
 
-# Default to shared library
-set(LIBOMP_SHARED_LIBRARY TRUE CACHE BOOL
-  "Create shared library?")
+# Shared library can be switched to a static library
+set(LIBOMP_ENABLE_SHARED TRUE CACHE BOOL
+  "Shared library instead of static library?")
+
+if(WIN32 AND NOT LIBOMP_ENABLE_SHARED)
+  libomp_error_say("Static libraries requested but not available on Windows")
+endif()
 
 # OMPT-support
 set(LIBOMP_OMPT_DEBUG FALSE CACHE BOOL
@@ -309,7 +313,7 @@ if(${STUBS_LIBRARY})
 endif()
 set(LIBOMP_LIB_NAME ${LIBOMP_DEFAULT_LIB_NAME} CACHE STRING "Base OMP library name")
 
-if(${LIBOMP_SHARED_LIBRARY})
+if(${LIBOMP_ENABLE_SHARED})
   set(LIBOMP_LIBRARY_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
   set(LIBOMP_LIBRARY_KIND SHARED) 
   set(LIBOMP_INSTALL_KIND LIBRARY) 

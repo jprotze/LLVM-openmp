@@ -816,15 +816,18 @@ __kmpc_ordered( ident_t * loc, kmp_int32 gtid )
     th = __kmp_threads[ gtid ];
 
 #if OMPT_SUPPORT && OMPT_TRACE
+    kmp_team_t *team;
+    ompt_wait_id_t lck;
     if (ompt_enabled) {
+        team = __kmp_team_from_gtid( gtid );
+        lck = (ompt_wait_id_t) &team->t.t_ordered.dt.t_value;
         /* OMPT state update */
-        th->th.ompt_thread_info.wait_id = (uint64_t) loc;
+        th->th.ompt_thread_info.wait_id = lck;
         th->th.ompt_thread_info.state = ompt_state_wait_ordered;
 
         /* OMPT event callback */
         if (ompt_callbacks.ompt_callback(ompt_event_wait_ordered)) {
-            ompt_callbacks.ompt_callback(ompt_event_wait_ordered)(
-                th->th.ompt_thread_info.wait_id);
+            ompt_callbacks.ompt_callback(ompt_event_wait_ordered)(lck);
         }
     }
 #endif
@@ -842,8 +845,7 @@ __kmpc_ordered( ident_t * loc, kmp_int32 gtid )
 
         /* OMPT event callback */
         if (ompt_callbacks.ompt_callback(ompt_event_acquired_ordered)) {
-            ompt_callbacks.ompt_callback(ompt_event_acquired_ordered)(
-                th->th.ompt_thread_info.wait_id);
+            ompt_callbacks.ompt_callback(ompt_event_acquired_ordered)(lck);
         }
     }
 #endif
@@ -1092,6 +1094,10 @@ __kmpc_critical( ident_t * loc, kmp_int32 global_tid, kmp_critical_name * crit )
 #else
     KMP_COUNT_BLOCK(OMP_CRITICAL);
     KMP_TIME_PARTITIONED_BLOCK(OMP_critical_wait);        /* Time spent waiting to enter the critical section */
+#if OMPT_SUPPORT && OMPT_TRACE
+    ompt_state_t prev_state = ompt_state_undefined;
+    ompt_thread_info_t ti;
+#endif
     kmp_user_lock_p lck;
 
     KC_TRACE( 10, ("__kmpc_critical: called T#%d\n", global_tid ) );
@@ -1126,12 +1132,40 @@ __kmpc_critical( ident_t * loc, kmp_int32 global_tid, kmp_critical_name * crit )
 #if USE_ITT_BUILD
     __kmp_itt_critical_acquiring( lck );
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled) {
+        ti  = __kmp_threads[global_tid]->th.ompt_thread_info;
+        /* OMPT state update */
+        prev_state = ti.state;
+        ti.wait_id = (ompt_wait_id_t) lck;
+        ti.state = ompt_state_wait_critical;
+
+        /* OMPT event callback */
+        if (ompt_callbacks.ompt_callback(ompt_event_wait_critical)) {
+            ompt_callbacks.ompt_callback(ompt_event_wait_critical)(
+                (ompt_wait_id_t) lck);
+        }
+    }
+#endif
     // Value of 'crit' should be good for using as a critical_id of the critical section directive.
     __kmp_acquire_user_lock_with_checks( lck, global_tid );
 
 #if USE_ITT_BUILD
     __kmp_itt_critical_acquired( lck );
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled) {
+        /* OMPT state update */
+        ti.state = prev_state;
+        ti.wait_id = 0;
+
+        /* OMPT event callback */
+        if (ompt_callbacks.ompt_callback(ompt_event_acquired_critical)) {
+            ompt_callbacks.ompt_callback(ompt_event_acquired_critical)(
+                (ompt_wait_id_t) lck);
+        }
+    }
+#endif
 
     KMP_START_EXPLICIT_TIMER(OMP_critical);
     KA_TRACE( 15, ("__kmpc_critical: done T#%d\n", global_tid ));
@@ -1202,6 +1236,10 @@ __kmpc_critical_with_hint( ident_t * loc, kmp_int32 global_tid, kmp_critical_nam
 {
     KMP_COUNT_BLOCK(OMP_CRITICAL);
     kmp_user_lock_p lck;
+#if OMPT_SUPPORT && OMPT_TRACE
+    ompt_state_t prev_state = ompt_state_undefined;
+    ompt_thread_info_t ti;
+#endif
 
     KC_TRACE( 10, ("__kmpc_critical: called T#%d\n", global_tid ) );
 
@@ -1225,6 +1263,21 @@ __kmpc_critical_with_hint( ident_t * loc, kmp_int32 global_tid, kmp_critical_nam
 # if USE_ITT_BUILD
         __kmp_itt_critical_acquiring(lck);
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+        if (ompt_enabled) {
+            ti  = __kmp_threads[global_tid]->th.ompt_thread_info;
+            /* OMPT state update */
+            prev_state = ti.state;
+            ti.wait_id = (ompt_wait_id_t) lck;
+            ti.state = ompt_state_wait_critical;
+
+            /* OMPT event callback */
+            if (ompt_callbacks.ompt_callback(ompt_event_wait_critical)) {
+                ompt_callbacks.ompt_callback(ompt_event_wait_critical)(
+                    (ompt_wait_id_t) lck);
+            }
+        }
+#endif
 # if KMP_USE_INLINED_TAS
         if (__kmp_user_lock_seq == lockseq_tas && !__kmp_env_consistency_check) {
             KMP_ACQUIRE_TAS_LOCK(lck, global_tid);
@@ -1246,12 +1299,40 @@ __kmpc_critical_with_hint( ident_t * loc, kmp_int32 global_tid, kmp_critical_nam
 # if USE_ITT_BUILD
         __kmp_itt_critical_acquiring(lck);
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+        if (ompt_enabled) {
+            ti  = __kmp_threads[global_tid]->th.ompt_thread_info;
+            /* OMPT state update */
+            prev_state = ti.state;
+            ti.wait_id = (ompt_wait_id_t) lck;
+            ti.state = ompt_state_wait_critical;
+
+            /* OMPT event callback */
+            if (ompt_callbacks.ompt_callback(ompt_event_wait_critical)) {
+                ompt_callbacks.ompt_callback(ompt_event_wait_critical)(
+                    (ompt_wait_id_t) lck);
+            }
+        }
+#endif
         KMP_I_LOCK_FUNC(ilk, set)(lck, global_tid);
     }
 
 #if USE_ITT_BUILD
     __kmp_itt_critical_acquired( lck );
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled) {
+        /* OMPT state update */
+        ti.state = prev_state;
+        ti.wait_id = 0;
+
+        /* OMPT event callback */
+        if (ompt_callbacks.ompt_callback(ompt_event_acquired_critical)) {
+            ompt_callbacks.ompt_callback(ompt_event_acquired_critical)(
+                (ompt_wait_id_t) lck);
+        }
+    }
+#endif
 
     KMP_PUSH_PARTITIONED_TIMER(OMP_critical);
     KA_TRACE( 15, ("__kmpc_critical: done T#%d\n", global_tid ));
@@ -1337,7 +1418,10 @@ __kmpc_end_critical(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit)
     // Value of 'crit' should be good for using as a critical_id of the critical section directive.
     __kmp_release_user_lock_with_checks( lck, global_tid );
 
+#endif // KMP_USE_DYNAMIC_LOCK
+
 #if OMPT_SUPPORT && OMPT_BLAME
+    /* OMPT release event triggers after lock is released; place here to trigger for all #if branches */
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_release_critical)) {
         ompt_callbacks.ompt_callback(ompt_event_release_critical)(
@@ -2131,6 +2215,12 @@ __kmpc_set_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 # if USE_ITT_BUILD
    __kmp_itt_lock_acquiring((kmp_user_lock_p)user_lock); // itt function will get to the right lock object.
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_wait_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_wait_lock)((uint64_t) user_lock);
+    }
+#endif
 # if KMP_USE_INLINED_TAS
     if (tag == locktag_tas && !__kmp_env_consistency_check) {
         KMP_ACQUIRE_TAS_LOCK(user_lock, gtid);
@@ -2146,6 +2236,12 @@ __kmpc_set_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 # if USE_ITT_BUILD
     __kmp_itt_lock_acquired((kmp_user_lock_p)user_lock);
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)((uint64_t) user_lock);
+    }
+#endif
 
 #else // KMP_USE_DYNAMIC_LOCK
 
@@ -2168,6 +2264,12 @@ __kmpc_set_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 #if USE_ITT_BUILD
     __kmp_itt_lock_acquiring( lck );
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_wait_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_wait_lock)((uint64_t) lck);
+    }
+#endif
 
     ACQUIRE_LOCK( lck, gtid );
 
@@ -2192,6 +2294,12 @@ __kmpc_set_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 # if USE_ITT_BUILD
     __kmp_itt_lock_acquiring((kmp_user_lock_p)user_lock);
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled) {
+       if(ompt_callbacks.ompt_callback(ompt_event_wait_nest_lock))
+          ompt_callbacks.ompt_callback(ompt_event_wait_nest_lock)((uint64_t) user_lock);
+    }
+#endif
     KMP_D_LOCK_FUNC(user_lock, set)((kmp_dyna_lock_t *)user_lock, gtid);
 # if USE_ITT_BUILD
     __kmp_itt_lock_acquired((kmp_user_lock_p)user_lock);
@@ -2225,6 +2333,12 @@ __kmpc_set_nest_lock( ident_t * loc, kmp_int32 gtid, void ** user_lock ) {
 #if USE_ITT_BUILD
     __kmp_itt_lock_acquiring( lck );
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled) {
+       if(ompt_callbacks.ompt_callback(ompt_event_wait_nest_lock))
+          ompt_callbacks.ompt_callback(ompt_event_wait_nest_lock)((uint64_t) lck);
+    }
+#endif
 
     ACQUIRE_NESTED_LOCK( lck, gtid, &acquire_status );
 
@@ -2412,6 +2526,12 @@ __kmpc_test_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
 # if USE_ITT_BUILD
         __kmp_itt_lock_acquired((kmp_user_lock_p)user_lock);
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)((uint64_t) user_lock);
+    }
+#endif
         return FTN_TRUE;
     } else {
 # if USE_ITT_BUILD
@@ -2451,6 +2571,13 @@ __kmpc_test_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
         __kmp_itt_lock_cancelled( lck );
     }
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled && rc &&
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)) {
+        ompt_callbacks.ompt_callback(ompt_event_acquired_lock)((uint64_t) lck);
+    }
+#endif
+
     return ( rc ? FTN_TRUE : FTN_FALSE );
 
     /* Can't use serial interval since not block structured */
@@ -2475,6 +2602,17 @@ __kmpc_test_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
         __kmp_itt_lock_cancelled((kmp_user_lock_p)user_lock);
     }
 # endif
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled && rc) {
+        if (rc == 1) {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first)((uint64_t) user_lock);
+        } else {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next)((uint64_t) user_lock);
+        }
+    }
+#endif
     return rc;
 
 #else // KMP_USE_DYNAMIC_LOCK
@@ -2509,6 +2647,17 @@ __kmpc_test_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
         __kmp_itt_lock_cancelled( lck );
     }
 #endif /* USE_ITT_BUILD */
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled && rc) {
+        if (rc == 1) {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_first)((uint64_t) lck);
+        } else {
+           if(ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next))
+              ompt_callbacks.ompt_callback(ompt_event_acquired_nest_lock_next)((uint64_t) lck);
+        }
+    }
+#endif
     return rc;
 
     /* Can't use serial interval since not block structured */

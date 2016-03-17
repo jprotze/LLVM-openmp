@@ -163,7 +163,7 @@ struct dispatch_shared_infoXX_template {
     volatile UT     iteration;
     volatile UT     num_done;
     volatile UT     ordered_iteration;
-    UT   ordered_dummy[KMP_MAX_ORDERED-1]; // to retain the structure size making ordered_iteration scalar
+    UT   ordered_dummy[KMP_MAX_ORDERED-3]; // to retain the structure size making ordered_iteration scalar
 };
 
 // replaces dispatch_shared_info structure and dispatch_shared_info_t type
@@ -175,6 +175,11 @@ struct dispatch_shared_info_template {
         dispatch_shared_info64_t               s64;
     } u;
     volatile kmp_uint32     buffer_index;
+#if OMP_41_ENABLED
+    volatile kmp_int32      doacross_buf_idx;  // teamwise index
+    kmp_uint32             *doacross_flags;    // array of iteration flags (0/1)
+    kmp_int32               doacross_num_done; // count finished threads
+#endif
 };
 
 /* ------------------------------------------------------------------------ */
@@ -656,6 +661,14 @@ __kmp_dispatch_init(
             ( &team -> t.t_disp_buffer[ my_buffer_index % KMP_MAX_DISP_BUF ] );
     }
 
+    /* Currently just ignore the monotonic and non-monotonic modifiers (the compiler isn't producing them
+     * yet anyway).
+     * When it is we'll want to look at them somewhere here and use that information to add to our
+     * schedule choice. We shouldn't need to pass them on, they merely affect which schedule we can
+     * legally choose for various dynamic cases. (In paritcular, whether or not a stealing scheme is legal).
+     */
+    schedule = SCHEDULE_WITHOUT_MODIFIERS(schedule);
+
     /* Pick up the nomerge/ordered bits from the scheduling type */
     if ( (schedule >= kmp_nm_lower) && (schedule < kmp_nm_upper) ) {
         pr->nomerge = TRUE;
@@ -685,7 +698,9 @@ __kmp_dispatch_init(
             }
             // Use the chunk size specified by OMP_SCHEDULE (or default if not specified)
             chunk = team -> t.t_sched.chunk;
-
+#if USE_ITT_BUILD
+            cur_chunk = chunk;
+#endif
             #ifdef KMP_DEBUG
             {
                 const char * buff;
@@ -1060,6 +1075,9 @@ __kmp_dispatch_init(
         break;
     case kmp_sch_static_chunked :
     case kmp_sch_dynamic_chunked :
+        if ( pr->u.p.parm1 <= 0 ) {
+            pr->u.p.parm1 = KMP_DEFAULT_CHUNK;
+        }
         KD_TRACE(100,("__kmp_dispatch_init: T#%d kmp_sch_static_chunked/kmp_sch_dynamic_chunked cases\n", gtid));
         break;
     case kmp_sch_trapezoidal :
@@ -2510,25 +2528,6 @@ kmp_uint32 __kmp_ge_4( kmp_uint32 value, kmp_uint32 checker) {
 kmp_uint32 __kmp_le_4( kmp_uint32 value, kmp_uint32 checker) {
     return value <= checker;
 }
-kmp_uint32 __kmp_eq_8( kmp_uint64 value, kmp_uint64 checker) {
-    return value == checker;
-}
-
-kmp_uint32 __kmp_neq_8( kmp_uint64 value, kmp_uint64 checker) {
-    return value != checker;
-}
-
-kmp_uint32 __kmp_lt_8( kmp_uint64 value, kmp_uint64 checker) {
-    return value < checker;
-}
-
-kmp_uint32 __kmp_ge_8( kmp_uint64 value, kmp_uint64 checker) {
-    return value >= checker;
-}
-
-kmp_uint32 __kmp_le_8( kmp_uint64 value, kmp_uint64 checker) {
-    return value <= checker;
-}
 
 kmp_uint32
 __kmp_wait_yield_4(volatile kmp_uint32 * spinner,
@@ -2556,41 +2555,6 @@ __kmp_wait_yield_4(volatile kmp_uint32 * spinner,
 
         /* if we have waited a bit, or are oversubscribed, yield */
         /* pause is in the following code */
-        KMP_YIELD( TCR_4(__kmp_nth) > __kmp_avail_proc );
-        KMP_YIELD_SPIN( spins );
-    }
-    KMP_FSYNC_SPIN_ACQUIRED( obj );
-    return r;
-}
-
-kmp_uint64
-__kmp_wait_yield_8( volatile kmp_uint64 * spinner,
-                    kmp_uint64            checker,
-                    kmp_uint32 (* pred)( kmp_uint64, kmp_uint64 )
-                    , void        * obj    // Higher-level synchronization object, or NULL.
-                    )
-{
-    // note: we may not belong to a team at this point
-    register volatile kmp_uint64         * spin          = spinner;
-    register          kmp_uint64           check         = checker;
-    register          kmp_uint32   spins;
-    register          kmp_uint32 (*f) ( kmp_uint64, kmp_uint64 ) = pred;
-    register          kmp_uint64           r;
-
-    KMP_FSYNC_SPIN_INIT( obj, (void*) spin );
-    KMP_INIT_YIELD( spins );
-    // main wait spin loop
-    while(!f(r = *spin, check))
-    {
-        KMP_FSYNC_SPIN_PREPARE( obj );
-        /* GEH - remove this since it was accidentally introduced when kmp_wait was split.
-           It causes problems with infinite recursion because of exit lock */
-        /* if ( TCR_4(__kmp_global.g.g_done) && __kmp_global.g.g_abort)
-            __kmp_abort_thread(); */
-
-        // if we are oversubscribed,
-        // or have waited a bit (and KMP_LIBARRY=throughput, then yield
-        // pause is in the following code
         KMP_YIELD( TCR_4(__kmp_nth) > __kmp_avail_proc );
         KMP_YIELD_SPIN( spins );
     }

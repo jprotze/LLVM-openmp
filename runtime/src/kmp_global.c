@@ -22,7 +22,7 @@ kmp_cpuinfo_t   __kmp_cpuinfo = { 0 }; // Not initialized
 #if KMP_STATS_ENABLED
 #include "kmp_stats.h"
 // lock for modifying the global __kmp_stats_list
-kmp_tas_lock_t __kmp_stats_lock = KMP_TAS_LOCK_INITIALIZER(__kmp_stats_lock);
+kmp_tas_lock_t __kmp_stats_lock;
 
 // global list of per thread stats, the head is a sentinel node which accumulates all stats produced before __kmp_create_worker is called.
 kmp_stats_list __kmp_stats_list;
@@ -32,6 +32,10 @@ __thread kmp_stats_list* __kmp_stats_thread_ptr = &__kmp_stats_list;
 
 // gives reference tick for all events (considered the 0 tick)
 tsc_tick_count __kmp_stats_start_time;
+#endif
+#if KMP_USE_HWLOC
+int __kmp_hwloc_error = FALSE;
+hwloc_topology_t __kmp_hwloc_topology = NULL;
 #endif
 
 /* ----------------------------------------------------- */
@@ -255,6 +259,9 @@ int __kmp_place_core_offset = 0;
 int __kmp_place_num_threads_per_core = 0;
 
 kmp_tasking_mode_t __kmp_tasking_mode = tskm_task_teams;
+#if OMP_41_ENABLED
+kmp_int32 __kmp_max_task_priority = 0;
+#endif
 
 /* This check ensures that the compiler is passing the correct data type
  * for the flags formal parameter of the function kmpc_omp_task_alloc().
@@ -316,7 +323,6 @@ int     __kmp_storage_map_verbose_specified = FALSE;
 /* Initialize the library data structures when we fork a child process, defaults to TRUE */
 int     __kmp_need_register_atfork = TRUE; /* At initialization, call pthread_atfork to install fork handler */
 int     __kmp_need_register_atfork_specified = TRUE;
-
 
 int        __kmp_env_chunk       = FALSE;  /* KMP_CHUNK specified?     */
 int        __kmp_env_stksize     = FALSE;  /* KMP_STACKSIZE specified? */

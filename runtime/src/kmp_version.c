@@ -105,7 +105,7 @@ char const __kmp_version_copyright[]      = KMP_VERSION_PREFIX KMP_COPYRIGHT;
 char const __kmp_version_lib_ver[]        = KMP_VERSION_PREFIX "version: " stringer( KMP_VERSION_MAJOR ) "." stringer( KMP_VERSION_MINOR ) "." stringer( KMP_VERSION_BUILD );
 char const __kmp_version_lib_type[]       = KMP_VERSION_PREFIX "library type: " KMP_LIB_TYPE;
 char const __kmp_version_link_type[]      = KMP_VERSION_PREFIX "link type: " KMP_LINK_TYPE;
-char const __kmp_version_build_time[]     = KMP_VERSION_PREFIX "build time: " __DATE__ " " __TIME__;
+char const __kmp_version_build_time[]     = KMP_VERSION_PREFIX "build time: " "no_timestamp";
 #if KMP_MIC2
     char const __kmp_version_target_env[] = KMP_VERSION_PREFIX "target environment: MIC2";
 #endif
@@ -203,9 +203,6 @@ __kmp_print_version_2( void ) {
         return;
     }; // if
     __kmp_version_2_printed = TRUE;
-
-    #ifndef KMP_STUB
-    #endif // KMP_STUB
 } // __kmp_print_version_2
 
 // end of file //

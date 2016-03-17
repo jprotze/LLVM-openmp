@@ -86,8 +86,9 @@ class kmp_flag {
 /* Spin wait loop that first does pause, then yield, then sleep. A thread that calls __kmp_wait_*
    must make certain that another thread calls __kmp_release to wake it back up to prevent deadlocks!  */
 template <class C>
-static inline void __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
-                                       USE_ITT_BUILD_ARG(void * itt_sync_obj) )
+static inline void
+__kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
+                    USE_ITT_BUILD_ARG(void * itt_sync_obj) )
 {
     // NOTE: We may not belong to a team at this point.
     volatile typename C::flag_t *spin = flag->get();
@@ -178,12 +179,14 @@ static inline void __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_
         if (__kmp_tasking_mode != tskm_immediate_exec) {
             task_team = this_thr->th.th_task_team;
             if (task_team != NULL) {
-                if (!TCR_SYNC_4(task_team->tt.tt_active)) {
+                if (TCR_SYNC_4(task_team->tt.tt_active)) {
+                    if (KMP_TASKING_ENABLED(task_team))
+                        flag->execute_tasks(this_thr, th_gtid, final_spin, &tasks_completed
+                                            USE_ITT_BUILD_ARG(itt_sync_obj), 0);
+                }
+                else {
                     KMP_DEBUG_ASSERT(!KMP_MASTER_TID(this_thr->th.th_info.ds.ds_tid));
-                    __kmp_unref_task_team(task_team, this_thr);
-                } else if (KMP_TASKING_ENABLED(task_team)) {
-                    flag->execute_tasks(this_thr, th_gtid, final_spin, &tasks_completed
-                                        USE_ITT_BUILD_ARG(itt_sync_obj), 0);
+                    this_thr->th.th_task_team = NULL;
                 }
             } // if
         } // if
@@ -280,7 +283,8 @@ static inline void __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_
    if indicated by the sleep bit(s). A thread that calls __kmp_wait_template must call this function to wake
    up the potentially sleeping thread and prevent deadlocks!  */
 template <class C>
-static inline void __kmp_release_template(C *flag)
+static inline void
+__kmp_release_template(C *flag)
 {
 #ifdef KMP_DEBUG
     int gtid = TCR_4(__kmp_init_gtid) ? __kmp_get_gtid() : -1;
@@ -288,11 +292,11 @@ static inline void __kmp_release_template(C *flag)
     KF_TRACE(20, ("__kmp_release: T#%d releasing flag(%x)\n", gtid, flag->get()));
     KMP_DEBUG_ASSERT(flag->get());
     KMP_FSYNC_RELEASING(flag->get());
-    
+
     flag->internal_release();
-    
+
     KF_TRACE(100, ("__kmp_release: T#%d set new spin=%d\n", gtid, flag->get(), *(flag->get())));
-    
+
     if (__kmp_dflt_blocktime != KMP_MAX_BLOCKTIME) {
         // Only need to check sleep stuff if infinite block time not set
         if (flag->is_any_sleeping()) { // Are *any* of the threads that wait on this flag sleeping?
@@ -436,6 +440,7 @@ class kmp_flag_32 : public kmp_basic_flag<kmp_uint32> {
                             USE_ITT_BUILD_ARG(itt_sync_obj));
     }
     void release() { __kmp_release_template(this); }
+    flag_type get_ptr_type() { return flag32; }
 };
 
 class kmp_flag_64 : public kmp_basic_flag<kmp_uint64> {
@@ -456,6 +461,7 @@ class kmp_flag_64 : public kmp_basic_flag<kmp_uint64> {
                             USE_ITT_BUILD_ARG(itt_sync_obj));
     }
     void release() { __kmp_release_template(this); }
+    flag_type get_ptr_type() { return flag64; }
 };
 
 // Hierarchical 64-bit on-core barrier instantiation
@@ -549,6 +555,7 @@ public:
     }
     kmp_uint8 *get_stolen() { return NULL; }
     enum barrier_type get_bt() { return bt; }
+    flag_type get_ptr_type() { return flag_oncore; }
 };
 
 

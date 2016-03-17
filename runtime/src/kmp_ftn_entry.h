@@ -257,7 +257,7 @@ FTN_GET_AFFINITY_MAX_PROC( void )
             return 0;
         }
 
-    #if KMP_GROUP_AFFINITY
+    #if KMP_GROUP_AFFINITY && !KMP_USE_HWLOC
         if ( __kmp_num_proc_groups > 1 ) {
             return (int)KMP_CPU_SETSIZE;
         }
@@ -278,7 +278,11 @@ FTN_CREATE_AFFINITY_MASK( void **mask )
         if ( ! TCR_4(__kmp_init_middle) ) {
             __kmp_middle_initialize();
         }
+    # if KMP_USE_HWLOC
+        *mask = (hwloc_cpuset_t)hwloc_bitmap_alloc();
+    # else
         *mask = kmpc_malloc( __kmp_affin_mask_size );
+    # endif
         KMP_CPU_ZERO( (kmp_affin_mask_t *)(*mask) );
     #endif
 }
@@ -300,7 +304,11 @@ FTN_DESTROY_AFFINITY_MASK( void **mask )
 	        KMP_FATAL( AffinityInvalidMask, "kmp_destroy_affinity_mask" );
 	    }
         }
+    # if KMP_USE_HWLOC
+        hwloc_bitmap_free((hwloc_cpuset_t)(*mask));
+    # else
         kmpc_free( *mask );
+    # endif
         *mask = NULL;
     #endif
 }
@@ -668,6 +676,139 @@ xexpand(FTN_GET_PROC_BIND)( void )
     #endif
 }
 
+#if OMP_41_ENABLED
+int FTN_STDCALL
+FTN_GET_NUM_PLACES( void )
+{
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+        return 0;
+    #else
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        return __kmp_affinity_num_masks;
+    #endif
+}
+
+int FTN_STDCALL
+FTN_GET_PLACE_NUM_PROCS( int place_num )
+{
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+        return 0;
+    #else
+        int i;
+        int retval = 0;
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        if ( place_num < 0 || place_num >= (int)__kmp_affinity_num_masks )
+            return 0;
+        kmp_affin_mask_t *mask = KMP_CPU_INDEX(__kmp_affinity_masks, place_num);
+        KMP_CPU_SET_ITERATE(i, mask) {
+            if ( !KMP_CPU_ISSET(i, mask) )
+                continue;
+            ++retval;
+        }
+        return retval;
+    #endif
+}
+
+void FTN_STDCALL
+FTN_GET_PLACE_PROC_IDS( int place_num, int *ids )
+{
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+    // Nothing.
+    #else
+        int i,j;
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        if ( place_num < 0 || place_num >= (int)__kmp_affinity_num_masks )
+            return;
+        kmp_affin_mask_t *mask = KMP_CPU_INDEX(__kmp_affinity_masks, place_num);
+        j = 0;
+        KMP_CPU_SET_ITERATE(i, mask) {
+            if ( !KMP_CPU_ISSET(i, mask) )
+                continue;
+            ids[j++] = i;
+        }
+    #endif
+}
+
+int FTN_STDCALL
+FTN_GET_PLACE_NUM( void )
+{
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+        return -1;
+    #else
+        int gtid;
+        kmp_info_t *thread;
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        gtid = __kmp_entry_gtid();
+        thread = __kmp_thread_from_gtid(gtid);
+        if ( thread->th.th_current_place < 0 )
+            return -1;
+        return thread->th.th_current_place;
+    #endif
+}
+
+int FTN_STDCALL
+FTN_GET_PARTITION_NUM_PLACES( void )
+{
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+        return 0;
+    #else
+        int gtid, num_places, first_place, last_place;
+        kmp_info_t *thread;
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        gtid = __kmp_entry_gtid();
+        thread = __kmp_thread_from_gtid(gtid);
+        first_place = thread->th.th_first_place;
+        last_place = thread->th.th_last_place;
+        if ( first_place < 0 || last_place < 0 )
+            return 0;
+        if ( first_place <= last_place )
+            num_places = last_place - first_place + 1;
+        else
+            num_places = __kmp_affinity_num_masks - first_place + last_place + 1;
+        return num_places;
+    #endif
+}
+
+void FTN_STDCALL
+FTN_GET_PARTITION_PLACE_NUMS( int *place_nums ) {
+    #if defined(KMP_STUB) || !KMP_AFFINITY_SUPPORTED
+    // Nothing.
+    #else
+        int i, gtid, place_num, first_place, last_place, start, end;
+        kmp_info_t *thread;
+        if ( ! TCR_4(__kmp_init_middle) ) {
+            __kmp_middle_initialize();
+        }
+        gtid = __kmp_entry_gtid();
+        thread = __kmp_thread_from_gtid(gtid);
+        first_place = thread->th.th_first_place;
+        last_place = thread->th.th_last_place;
+        if ( first_place < 0 || last_place < 0 )
+            return;
+        if ( first_place <= last_place ) {
+            start = first_place;
+            end = last_place;
+        } else {
+            start = last_place;
+            end = first_place;
+        }
+        for (i = 0, place_num = start; place_num <= end; ++place_num, ++i) {
+            place_nums[i] = place_num;
+        }
+    #endif
+}
+#endif
+
 int FTN_STDCALL
 xexpand(FTN_GET_NUM_TEAMS)( void )
 {
@@ -804,22 +945,22 @@ typedef enum { UNINIT = -1, UNLOCKED, LOCKED } kmp_stub_lock_t;
 
 #if KMP_USE_DYNAMIC_LOCK
 void FTN_STDCALL
-FTN_INIT_LOCK_HINTED( void **user_lock, int KMP_DEREF hint )
+FTN_INIT_LOCK_WITH_HINT( void **user_lock, uintptr_t KMP_DEREF hint )
 {
     #ifdef KMP_STUB
         *((kmp_stub_lock_t *)user_lock) = UNLOCKED;
     #else
-        __kmp_init_lock_hinted( user_lock, KMP_DEREF hint );
+        __kmpc_init_lock_with_hint( NULL, __kmp_entry_gtid(), user_lock, KMP_DEREF hint );
     #endif
 }
 
 void FTN_STDCALL
-FTN_INIT_NEST_LOCK_HINTED( void **user_lock, int KMP_DEREF hint )
+FTN_INIT_NEST_LOCK_WITH_HINT( void **user_lock, uintptr_t KMP_DEREF hint )
 {
     #ifdef KMP_STUB
         *((kmp_stub_lock_t *)user_lock) = UNLOCKED;
     #else
-        __kmp_init_nest_lock_hinted( user_lock, KMP_DEREF hint );
+        __kmpc_init_nest_lock_with_hint( NULL, __kmp_entry_gtid(), user_lock, KMP_DEREF hint );
     #endif
 }
 #endif
@@ -1080,6 +1221,22 @@ FTN_GET_CANCELLATION_STATUS(int cancel_kind) {
 }
 
 #endif // OMP_40_ENABLED
+
+#if OMP_41_ENABLED
+/* returns the maximum allowed task priority */
+int FTN_STDCALL
+FTN_GET_MAX_TASK_PRIORITY( void )
+{
+#ifdef KMP_STUB
+    return 0;
+#else
+    if ( ! __kmp_init_serial ) {
+        __kmp_serial_initialize();
+    }
+    return __kmp_max_task_priority;
+#endif
+}
+#endif
 
 // GCC compatibility (versioned symbols)
 #ifdef KMP_USE_VERSION_SYMBOLS

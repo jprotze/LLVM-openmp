@@ -13,9 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 
-#if defined(__x86_64) || defined (__powerpc64__) || defined(__aarch64__)
-# define KMP_I8
-#endif
 #include "kmp.h"
 #include "kmp_atomic.h"
 
@@ -927,7 +924,7 @@ PARALLEL_LOOP_START(xexpand(KMP_API_NAME_GOMP_PARALLEL_LOOP_RUNTIME_START),
 
 void
 xexpand(KMP_API_NAME_GOMP_TASK)(void (*func)(void *), void *data, void (*copy_func)(void *, void *),
-  long arg_size, long arg_align, int if_cond, unsigned gomp_flags)
+  long arg_size, long arg_align, bool if_cond, unsigned gomp_flags)
 {
     MKLOC(loc, "GOMP_task");
     int gtid = __kmp_entry_gtid();

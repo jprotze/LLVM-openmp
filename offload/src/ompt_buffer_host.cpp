@@ -27,6 +27,45 @@ COIPIPELINE Tracer::create_pipeline() {
     return pipeline;
 }
 
+// TODO: This function can only be executed after initialization of
+// liboffload (i.e. m_proc created and defined).
+uint64_t Tracer::get_time() {
+    uint64_t ret;
+
+    // TODO: This will be done in every call and should be moved
+    // in an initialization function or somehwere else.
+    COIRESULT result = COI::ProcessGetFunctionHandles(
+                m_proc,
+                c_ompt_funcs_total,
+                ompt_func_names,
+                ompt_funcs
+        );
+
+    if (result != COI_SUCCESS) {
+        printf("ERROR: Getting function handle failed\n");
+    }
+
+    COIPIPELINE pipeline = create_pipeline();
+    COI_ACCESS_FLAGS flags = COI_SINK_READ;
+
+    // Run the actual function
+    result = COI::PipelineRunFunction(
+            pipeline, ompt_funcs[c_ompt_func_target_get_time],
+            0, NULL, NULL,
+            0, NULL,
+            NULL, 0,
+            &ret, sizeof(uint64_t),
+            NULL);
+
+    if (result != COI_SUCCESS) {
+        printf("ERROR: Running pipeline function failed on target time request\n");
+    }
+
+    COI::PipelineDestroy(pipeline);
+
+    return ret;
+}
+
 void* Tracer::signal_buffer_allocated_helper(void *data) {
     ompt_buffer_info_t buffer_info = *((ompt_buffer_info_t*) data);
     free(data);

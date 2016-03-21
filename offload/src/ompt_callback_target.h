@@ -13,7 +13,7 @@ void my_##EVENT(ompt_thread_id_t thread_id) \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.thread = { \
     .thread_id = thread_id \
   }; \
@@ -32,7 +32,7 @@ void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_id_t thread_id) \
   \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.thread_type = { \
     .thread_id = thread_id, \
     .thread_type = thread_type \
@@ -51,7 +51,7 @@ void my_##EVENT ( \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.wait = { \
     .wait_id = waitid \
   }; \
@@ -68,7 +68,7 @@ ompt_task_id_t task_id)           /* id for task                 */ \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.parallel = { \
     .parallel_id = parallel_id, \
     .task_id = task_id \
@@ -87,7 +87,7 @@ void *workshare_function)           /* ptr to outlined function  */ \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.new_workshare = { \
     .parallel_id = parallel_id, \
     .task_id = task_id, \
@@ -109,7 +109,7 @@ void my_##EVENT ( \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.new_parallel = { \
     .parent_task_id = parent_task_id, \
     .parent_task_frame = parent_task_frame, \
@@ -129,7 +129,7 @@ ompt_task_id_t task_id)            /* tool data for task          */ \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.task = { \
     .task_id = task_id \
   }; \
@@ -146,7 +146,7 @@ void my_##EVENT ( \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.task_switch = { \
     .suspended_task_id = suspended_task_id, \
     .resumed_task_id = resumed_task_id \
@@ -166,7 +166,7 @@ void my_##EVENT ( \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
-  event.time = ompt_get_time(); \
+  event.time = target_get_time(); \
   event.record.new_task = { \
     .parent_task_id = parent_task_id, \
     .parent_task_frame = parent_task_frame, \

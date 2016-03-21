@@ -77,7 +77,7 @@ src_liboffload_host+=ompt_host.cpp ompt_buffer_host.cpp
 src_liboffload_host:=$(foreach file,$(src_liboffload_host),$(source_dir)/$(file))
 
 src_liboffload_target=$(src_liboffload_common) coi/coi_server.cpp compiler_if_target.cpp offload_omp_target.cpp offload_target.cpp offload_timer_target.cpp offload_myo_target.cpp
-src_liboffload_target+=ompt_buffer_target.cpp
+src_liboffload_target+=ompt_target.cpp ompt_buffer_target.cpp
 src_liboffload_target:=$(foreach file,$(src_liboffload_target),$(source_dir)/$(file))
 
 src_ofld=ofldbegin.cpp ofldend.cpp

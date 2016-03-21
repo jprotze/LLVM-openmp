@@ -79,6 +79,7 @@ ompt_callbacks_t ompt_callbacks;
 // by ompt_target_initialize
 ompt_recording_start_t __ompt_recording_start;
 ompt_recording_stop_t __ompt_recording_stop;
+ompt_target_get_time_t __ompt_target_get_time;
 
 static ompt_initialize_t  ompt_initialize_fn = NULL;
 
@@ -207,7 +208,8 @@ const ompt_target_lib_info_t ompt_target_lib_info = {
 
 _OMP_EXTERN const ompt_target_lib_info_t *
 ompt_target_initialize(ompt_recording_start_t ompt_recording_start_p,
-                       ompt_recording_stop_t ompt_recording_stop_p)
+                       ompt_recording_stop_t ompt_recording_stop_p,
+                       ompt_target_get_time_t ompt_target_get_time_p)
 {
     static int ompt_target_init = 0;
 
@@ -221,6 +223,7 @@ ompt_target_initialize(ompt_recording_start_t ompt_recording_start_p,
     // override empty tracing functions
     __ompt_recording_start = ompt_recording_start_p;
     __ompt_recording_stop = ompt_recording_stop_p;
+    __ompt_target_get_time = ompt_target_get_time_p;
 
     return &ompt_target_lib_info;
 }
@@ -280,6 +283,7 @@ void ompt_pre_init()
     // target tracing function pointers
     __ompt_recording_start = &__ompt_recording_start_internal;
     __ompt_recording_stop = &__ompt_recording_stop_internal;
+    __ompt_target_get_time = &__ompt_target_get_time_internal;
 }
 
 
@@ -497,6 +501,10 @@ OMPT_API_ROUTINE int ompt_recording_stop(int device_id)
     return __ompt_recording_stop(device_id);
 }
 
+OMPT_API_ROUTINE int ompt_target_get_time(int device_id)
+{
+    return __ompt_target_get_time(device_id);
+}
 
 
 /*****************************************************************************

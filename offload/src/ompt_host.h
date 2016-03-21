@@ -34,7 +34,8 @@ extern "C" {
 #endif
 extern const ompt_target_lib_info_t *ompt_target_initialize(
                                    ompt_recording_start_t,
-                                   ompt_recording_stop_t);
+                                   ompt_recording_stop_t,
+                                   ompt_target_get_time_t);
 #ifdef __cplusplus
 };
 #endif
@@ -108,6 +109,8 @@ int __ompt_recording_start(
         ompt_target_buffer_complete_callback_t complete);
 
 int __ompt_recording_stop(int device_id);
+
+ompt_target_time_t __ompt_target_get_time(int device_id);
 
 // target tasks
 static inline void ompt_target_task_begin()

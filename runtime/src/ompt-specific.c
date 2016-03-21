@@ -384,6 +384,12 @@ __ompt_recording_stop_internal(int device_id)
   return 0;
 }
 
+ompt_target_time_t
+__ompt_target_get_time_internal(int device_id)
+{
+  return 0;
+}
+
 void __ompt_target_task_begin()
 {
     kmp_info_t *thr = ompt_get_thread();

@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <ompt.h>
 #include <map>
+#include "ompt_target.h"
 
 
 ompt_thread_id_t* ompt_tid_buffer;
@@ -32,14 +33,6 @@ typedef struct {
 } ompt_thread_data_t;
 
 std::map<uint64_t, ompt_thread_data_t> tdata;
-
-
-uint64_t ompt_get_time() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-
-    return 1000000 * tv.tv_sec + tv.tv_usec;
-}
 
 void ompt_buffer_add_target_event(ompt_record_t event) {
     // The OMPT thread IDs start with 1 such that we will have to shift tid

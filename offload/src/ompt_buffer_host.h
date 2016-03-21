@@ -10,13 +10,15 @@ enum {
     c_ompt_func_signal_buffer_allocated,
     c_ompt_func_signal_buffer_truncated,
     c_ompt_func_get_buffer_pos,
+    c_ompt_func_target_get_time,
     c_ompt_funcs_total
 };
 
 static const char *ompt_func_names[] = {
     "ompt_target_start_tracing", "ompt_target_stop_tracing",
     "ompt_target_restart_tracing", "ompt_signal_buffer_allocated",
-    "ompt_signal_buffer_truncated", "ompt_get_buffer_pos"};
+    "ompt_signal_buffer_truncated", "ompt_get_buffer_pos",
+    "ompt_target_get_time"};
 
 typedef struct {
     ompt_thread_id_t tid;
@@ -87,6 +89,11 @@ struct Tracer {
                                              COIPROCESS in_Process,
                                              COIEVENT in_Event,
                                              const void *in_UserData);
+
+    /**
+     * Get target time
+     */
+    uint64_t get_time();
 
     /**
      * Signals the device that host memory for a thread-specific

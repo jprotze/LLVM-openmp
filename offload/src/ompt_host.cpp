@@ -14,7 +14,9 @@ void __ompt_target_initialize()
     if (ompt_target_initialized == 0) {
         ompt_target_initialized = 1;
 
-        ompt_info = ompt_target_initialize(&__ompt_recording_start, &__ompt_recording_stop);
+        ompt_info = ompt_target_initialize(&__ompt_recording_start,
+                                           &__ompt_recording_stop,
+                                           &__ompt_target_get_time);
     }
 }
 
@@ -47,6 +49,14 @@ int __ompt_recording_stop(int device_id) {
     tracer.stop();
 
     return 0;
+}
+
+ompt_target_time_t __ompt_target_get_time(int device_id) {
+    Engine& engine = mic_engines[device_id % mic_engines_total];
+    ompt_target_info_t& target_info = engine.get_target_info();
+    Tracer& tracer = engine.get_tracer();
+
+    return tracer.get_time();
 }
 
 ompt_target_activity_id_t ompt_target_activity_id_new()

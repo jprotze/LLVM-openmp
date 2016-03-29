@@ -501,7 +501,7 @@ OMPT_API_ROUTINE int ompt_recording_stop(int device_id)
     return __ompt_recording_stop(device_id);
 }
 
-OMPT_API_ROUTINE int ompt_target_get_time(int device_id)
+OMPT_API_ROUTINE ompt_target_time_t ompt_target_get_time(int device_id)
 {
     return __ompt_target_get_time(device_id);
 }

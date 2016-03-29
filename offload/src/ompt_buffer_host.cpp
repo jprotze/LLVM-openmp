@@ -27,11 +27,11 @@ COIPIPELINE Tracer::create_pipeline() {
     return pipeline;
 }
 
-uint64_t Tracer::get_time() {
-    uint64_t ret;
+void Tracer::init_functions() {
+    if (m_funcs_inited) {
+        return;
+    }
 
-    // TODO: This will be done in every call and should be moved
-    // in an initialization function or somehwere else.
     COIRESULT result = COI::ProcessGetFunctionHandles(
                 m_proc,
                 c_ompt_funcs_total,
@@ -39,15 +39,23 @@ uint64_t Tracer::get_time() {
                 ompt_funcs
         );
 
-    if (result != COI_SUCCESS) {
+    if (result == COI_SUCCESS) {
+        m_funcs_inited = 1;
+    } else {
         printf("ERROR: Getting function handle failed\n");
     }
+}
+
+uint64_t Tracer::get_time() {
+    uint64_t ret;
+
+    init_functions();
 
     COIPIPELINE pipeline = create_pipeline();
     COI_ACCESS_FLAGS flags = COI_SINK_READ;
 
     // Run the actual function
-    result = COI::PipelineRunFunction(
+    COIRESULT result = COI::PipelineRunFunction(
             pipeline, ompt_funcs[c_ompt_func_target_get_time],
             0, NULL, NULL,
             0, NULL,
@@ -280,16 +288,7 @@ void Tracer::start() {
             printf("ERROR: Creating buffer failed, %d\n", result);
         }
 
-        result = COI::ProcessGetFunctionHandles(
-                m_proc,
-                c_ompt_funcs_total,
-                ompt_func_names,
-                ompt_funcs
-        );
-
-        if (result != COI_SUCCESS) {
-            printf("ERROR: Getting function handle failed\n");
-        }
+        init_functions();
 
         COIPIPELINE pipeline = create_pipeline();
 

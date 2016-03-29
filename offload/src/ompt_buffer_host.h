@@ -32,7 +32,8 @@ typedef struct {
 } thread_data_t;
 
 struct Tracer {
-    Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0) {}
+    Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
+               m_funcs_inited(0) {}
 
   private:
     COIFUNCTION ompt_funcs[c_ompt_funcs_total];
@@ -40,6 +41,7 @@ struct Tracer {
     int m_device_id;
     int m_tracing;
     int m_paused;
+    int m_funcs_inited;
 
     ompt_target_buffer_request_callback_t request_callback;
     ompt_target_buffer_complete_callback_t complete_callback;
@@ -55,6 +57,11 @@ struct Tracer {
      * Simplifies pipeline creation.
      */
     COIPIPELINE create_pipeline();
+
+    /**
+     * Calls COI::ProcessGetFunctionHandles
+     */
+    void init_functions();
 
     /**
      * Pull OMPT buffer entries from device.

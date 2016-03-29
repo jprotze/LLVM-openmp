@@ -654,8 +654,10 @@ __kmpc_flush(ident_t *loc)
             if ( ! __kmp_cpuinfo.sse2 ) {
                 // CPU cannot execute SSE2 instructions.
             } else {
-                #if KMP_COMPILER_ICC || KMP_COMPILER_MSVC
+                #if KMP_COMPILER_ICC 
                 _mm_mfence();
+                #elif KMP_COMPILER_MSVC
+                MemoryBarrier();
                 #else
                 __sync_synchronize();
                 #endif // KMP_COMPILER_ICC
@@ -732,7 +734,6 @@ __kmpc_barrier(ident_t *loc, kmp_int32 global_tid)
 kmp_int32
 __kmpc_master(ident_t *loc, kmp_int32 global_tid)
 {
-    KMP_COUNT_BLOCK(OMP_MASTER);
     int status = 0;
 
     KC_TRACE( 10, ("__kmpc_master: called T#%d\n", global_tid ) );
@@ -741,6 +742,7 @@ __kmpc_master(ident_t *loc, kmp_int32 global_tid)
         __kmp_parallel_initialize();
 
     if( KMP_MASTER_GTID( global_tid )) {
+        KMP_COUNT_BLOCK(OMP_MASTER);
         KMP_START_EXPLICIT_TIMER(OMP_master);
         status = 1;
     }
@@ -1114,6 +1116,7 @@ __kmpc_critical( ident_t * loc, kmp_int32 global_tid, kmp_critical_name * crit )
     __kmpc_critical_with_hint(loc, global_tid, crit, omp_lock_hint_none);
 #else
     KMP_COUNT_BLOCK(OMP_CRITICAL);
+    KMP_TIME_BLOCK(OMP_critical_wait);        /* Time spent waiting to enter the critical section */
     kmp_user_lock_p lck;
 
     KC_TRACE( 10, ("__kmpc_critical: called T#%d\n", global_tid ) );
@@ -1155,6 +1158,7 @@ __kmpc_critical( ident_t * loc, kmp_int32 global_tid, kmp_critical_name * crit )
     __kmp_itt_critical_acquired( lck );
 #endif /* USE_ITT_BUILD */
 
+    KMP_START_EXPLICIT_TIMER(OMP_critical);
     KA_TRACE( 15, ("__kmpc_critical: done T#%d\n", global_tid ));
 #endif // KMP_USE_DYNAMIC_LOCK
 }
@@ -1170,13 +1174,20 @@ __kmp_map_hint_to_lock(uintptr_t hint)
 #else
 # define KMP_TSX_LOCK(seq) __kmp_user_lock_seq
 #endif
+
+#if KMP_ARCH_X86 || KMP_ARCH_X86_64
+# define KMP_CPUINFO_RTM (__kmp_cpuinfo.rtm)
+#else
+# define KMP_CPUINFO_RTM 0
+#endif
+
     // Hints that do not require further logic
     if (hint & kmp_lock_hint_hle)
         return KMP_TSX_LOCK(hle);
     if (hint & kmp_lock_hint_rtm)
-        return (__kmp_cpuinfo.rtm)? KMP_TSX_LOCK(rtm): __kmp_user_lock_seq;
+        return KMP_CPUINFO_RTM ? KMP_TSX_LOCK(rtm): __kmp_user_lock_seq;
     if (hint & kmp_lock_hint_adaptive)
-        return (__kmp_cpuinfo.rtm)? KMP_TSX_LOCK(adaptive): __kmp_user_lock_seq;
+        return KMP_CPUINFO_RTM ? KMP_TSX_LOCK(adaptive): __kmp_user_lock_seq;
 
     // Rule out conflicting hints first by returning the default lock
     if ((hint & omp_lock_hint_contended) && (hint & omp_lock_hint_uncontended))
@@ -1359,7 +1370,7 @@ __kmpc_end_critical(ident_t *loc, kmp_int32 global_tid, kmp_critical_name *crit)
 #endif
 
 #endif // KMP_USE_DYNAMIC_LOCK
-
+    KMP_STOP_EXPLICIT_TIMER(OMP_critical);
     KA_TRACE( 15, ("__kmpc_end_critical: done T#%d\n", global_tid ));
 }
 
@@ -1476,9 +1487,11 @@ introduce an explicit barrier if it is required.
 kmp_int32
 __kmpc_single(ident_t *loc, kmp_int32 global_tid)
 {
-    KMP_COUNT_BLOCK(OMP_SINGLE);
     kmp_int32 rc = __kmp_enter_single( global_tid, loc, TRUE );
-    if(rc == TRUE) {
+
+    if (rc) {
+        // We are going to execute the single statement, so we should count it.
+        KMP_COUNT_BLOCK(OMP_SINGLE);
         KMP_START_EXPLICIT_TIMER(OMP_single);
     }
 
@@ -1553,13 +1566,10 @@ __kmpc_for_static_fini( ident_t *loc, kmp_int32 global_tid )
 #if OMPT_SUPPORT && OMPT_TRACE
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_loop_end)) {
-        kmp_info_t *this_thr = __kmp_threads[ global_tid ];
-        kmp_team_t *team     = this_thr -> th.th_team;
-        int tid = __kmp_tid_from_gtid( global_tid );
-
+        ompt_team_info_t *team_info = __ompt_get_teaminfo(0, NULL);
+        ompt_task_info_t *task_info = __ompt_get_taskinfo(0);
         ompt_callbacks.ompt_callback(ompt_event_loop_end)(
-            team->t.ompt_team_info.parallel_id,
-            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+            team_info->parallel_id, task_info->task_id);
     }
 #endif
 

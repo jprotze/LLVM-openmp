@@ -1166,7 +1166,7 @@ __kmp_invoke_task( kmp_int32 gtid, kmp_task_t *task, kmp_taskdata_t * current_ta
     //
     if (!discard) {
         KMP_COUNT_BLOCK(TASK_executed);
-        KMP_TIME_BLOCK (TASK_execution);
+        KMP_TIME_BLOCK (OMP_task);
 #endif // OMP_40_ENABLED
 
 #if OMPT_SUPPORT && OMPT_TRACE
@@ -2965,7 +2965,7 @@ __kmp_taskloop_linear(ident_t *loc, int gtid, kmp_task_t *task,
     kmp_uint64 tc;
     kmp_uint64 lower = *lb; // compiler provides global bounds here
     kmp_uint64 upper = *ub;
-    kmp_uint64 i, num_tasks, extras;
+    kmp_uint64 i, num_tasks = 0, extras = 0;
     kmp_info_t *thread = __kmp_threads[gtid];
     kmp_taskdata_t *current_task = thread->th.th_current_task;
     kmp_task_t *next_task;

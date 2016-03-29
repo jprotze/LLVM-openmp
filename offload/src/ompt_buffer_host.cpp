@@ -27,8 +27,6 @@ COIPIPELINE Tracer::create_pipeline() {
     return pipeline;
 }
 
-// TODO: This function can only be executed after initialization of
-// liboffload (i.e. m_proc created and defined).
 uint64_t Tracer::get_time() {
     uint64_t ret;
 

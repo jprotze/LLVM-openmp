@@ -754,8 +754,8 @@ __kmpc_master(ident_t *loc, kmp_int32 global_tid)
 
             int  tid = __kmp_tid_from_gtid( global_tid );
             ompt_callbacks.ompt_callback(ompt_event_master_begin)(
-                team->t.ompt_team_info.parallel_id,
-                team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+                team->t.ompt_team_info.parallel_data,
+                team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
         }
     }
 #endif
@@ -800,8 +800,8 @@ __kmpc_end_master(ident_t *loc, kmp_int32 global_tid)
         ompt_callbacks.ompt_callback(ompt_event_master_end)) {
         int  tid = __kmp_tid_from_gtid( global_tid );
         ompt_callbacks.ompt_callback(ompt_event_master_end)(
-            team->t.ompt_team_info.parallel_id,
-            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+            team->t.ompt_team_info.parallel_data,
+            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
     }
 #endif
 
@@ -911,7 +911,7 @@ __kmpc_end_ordered( ident_t * loc, kmp_int32 gtid )
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_release_ordered)) {
         ompt_callbacks.ompt_callback(ompt_event_release_ordered)(
-            th->th.ompt_thread_info.wait_id);
+            (ompt_wait_id_t) &__kmp_team_from_gtid( gtid )->t.t_ordered.dt.t_value);
     }
 #endif
 }
@@ -1574,15 +1574,15 @@ __kmpc_single(ident_t *loc, kmp_int32 global_tid)
         if (rc) {
             if (ompt_callbacks.ompt_callback(ompt_event_single_in_block_begin)) {
                 ompt_callbacks.ompt_callback(ompt_event_single_in_block_begin)(
-                    team->t.ompt_team_info.parallel_id,
-                    team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id,
+                    team->t.ompt_team_info.parallel_data,
+                    team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data,
                     team->t.ompt_team_info.microtask);
             }
         } else {
             if (ompt_callbacks.ompt_callback(ompt_event_single_others_begin)) {
                 ompt_callbacks.ompt_callback(ompt_event_single_others_begin)(
-                    team->t.ompt_team_info.parallel_id,
-                    team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+                    team->t.ompt_team_info.parallel_data,
+                    team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
             }
             this_thr->th.ompt_thread_info.state = ompt_state_wait_single;
         }
@@ -1615,8 +1615,8 @@ __kmpc_end_single(ident_t *loc, kmp_int32 global_tid)
     if (ompt_enabled &&
         ompt_callbacks.ompt_callback(ompt_event_single_in_block_end)) {
         ompt_callbacks.ompt_callback(ompt_event_single_in_block_end)(
-            team->t.ompt_team_info.parallel_id,
-            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+            team->t.ompt_team_info.parallel_data,
+            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
     }
 #endif
 }
@@ -1641,8 +1641,8 @@ __kmpc_for_static_fini( ident_t *loc, kmp_int32 global_tid )
         int tid = __kmp_tid_from_gtid( global_tid );
 
         ompt_callbacks.ompt_callback(ompt_event_loop_end)(
-            team->t.ompt_team_info.parallel_id,
-            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
+            team->t.ompt_team_info.parallel_data,
+            team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
     }
 #endif
 

@@ -164,6 +164,9 @@ __kmp_for_static_init(
     }
 
     #if OMP_40_ENABLED
+    // Although there are schedule enumerations above kmp_ord_upper which are not schedules for "distribute",
+    // the only ones which are useful are dynamic, so cannot be seen here, since this codepath is only executed
+    // for static schedules.
     if ( schedtype > kmp_ord_upper ) {
         // we are in DISTRIBUTE construct
         schedtype += kmp_sch_static - kmp_distribute_static;      // AC: convert to usual schedule type
@@ -241,12 +244,11 @@ __kmp_for_static_init(
         trip_count = *pupper - *plower + 1;
     } else if (incr == -1) {
         trip_count = *plower - *pupper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(*pupper - *plower) / incr + 1;
     } else {
-        if ( incr > 1 ) {  // the check is needed for unsigned division when incr < 0
-            trip_count = (*pupper - *plower) / incr + 1;
-        } else {
-            trip_count = (*plower - *pupper) / ( -incr ) + 1;
-        }
+        trip_count = (UT)(*plower - *pupper) / (-incr) + 1;
     }
 
     if ( __kmp_env_consistency_check ) {
@@ -444,8 +446,11 @@ __kmp_dist_for_static_init(
         trip_count = *pupper - *plower + 1;
     } else if(incr == -1) {
         trip_count = *plower - *pupper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(*pupper - *plower) / incr + 1;
     } else {
-        trip_count = (ST)(*pupper - *plower) / incr + 1; // cast to signed to cover incr<0 case
+        trip_count = (UT)(*plower - *pupper) / (-incr) + 1;
     }
 
     *pstride = *pupper - *plower;  // just in case (can be unused)
@@ -511,8 +516,11 @@ __kmp_dist_for_static_init(
             trip_count = *pupperDist - *plower + 1;
         } else if(incr == -1) {
             trip_count = *plower - *pupperDist + 1;
+        } else if ( incr > 1 ) {
+            // upper-lower can exceed the limit of signed type
+            trip_count = (UT)(*pupperDist - *plower) / incr + 1;
         } else {
-            trip_count = (ST)(*pupperDist - *plower) / incr + 1;
+            trip_count = (UT)(*plower - *pupperDist) / (-incr) + 1;
         }
         KMP_DEBUG_ASSERT( trip_count );
         switch( schedule ) {
@@ -681,8 +689,11 @@ __kmp_team_static_init(
         trip_count = upper - lower + 1;
     } else if(incr == -1) {
         trip_count = lower - upper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(upper - lower) / incr + 1;
     } else {
-        trip_count = (ST)(upper - lower) / incr + 1; // cast to signed to cover incr<0 case
+        trip_count = (UT)(lower - upper) / (-incr) + 1;
     }
     if( chunk < 1 )
         chunk = 1;

@@ -163,7 +163,7 @@ struct dispatch_shared_infoXX_template {
     volatile UT     iteration;
     volatile UT     num_done;
     volatile UT     ordered_iteration;
-    UT   ordered_dummy[KMP_MAX_ORDERED-1]; // to retain the structure size making ordered_iteration scalar
+    UT   ordered_dummy[KMP_MAX_ORDERED-3]; // to retain the structure size making ordered_iteration scalar
 };
 
 // replaces dispatch_shared_info structure and dispatch_shared_info_t type
@@ -175,6 +175,11 @@ struct dispatch_shared_info_template {
         dispatch_shared_info64_t               s64;
     } u;
     volatile kmp_uint32     buffer_index;
+#if OMP_41_ENABLED
+    volatile kmp_int32      doacross_buf_idx;  // teamwise index
+    kmp_uint32             *doacross_flags;    // array of iteration flags (0/1)
+    kmp_int32               doacross_num_done; // count finished threads
+#endif
 };
 
 /* ------------------------------------------------------------------------ */
@@ -656,6 +661,14 @@ __kmp_dispatch_init(
             ( &team -> t.t_disp_buffer[ my_buffer_index % KMP_MAX_DISP_BUF ] );
     }
 
+    /* Currently just ignore the monotonic and non-monotonic modifiers (the compiler isn't producing them
+     * yet anyway).
+     * When it is we'll want to look at them somewhere here and use that information to add to our
+     * schedule choice. We shouldn't need to pass them on, they merely affect which schedule we can
+     * legally choose for various dynamic cases. (In paritcular, whether or not a stealing scheme is legal).
+     */
+    schedule = SCHEDULE_WITHOUT_MODIFIERS(schedule);
+
     /* Pick up the nomerge/ordered bits from the scheduling type */
     if ( (schedule >= kmp_nm_lower) && (schedule < kmp_nm_upper) ) {
         pr->nomerge = TRUE;
@@ -744,24 +757,29 @@ __kmp_dispatch_init(
             );
         }
     }
-
-    tc = ( ub - lb + st );
-    if ( st != 1 ) {
-        if ( st < 0 ) {
-            if ( lb < ub ) {
-                tc = 0;            // zero-trip
-            } else {   // lb >= ub
-                tc = (ST)tc / st;  // convert to signed division
-            }
-        } else {       // st > 0
-            if ( ub < lb ) {
-                tc = 0;            // zero-trip
-            } else {   // lb >= ub
-                tc /= st;
-            }
+    // compute trip count
+    if ( st == 1 ) {   // most common case
+        if ( ub >= lb ) {
+            tc = ub - lb + 1;
+        } else {   // ub < lb
+            tc = 0;            // zero-trip
         }
-    } else if ( ub < lb ) {        // st == 1
-        tc = 0;                    // zero-trip
+    } else if ( st < 0 ) {
+        if ( lb >= ub ) {
+            // AC: cast to unsigned is needed for loops like (i=2B; i>-2B; i-=1B),
+            //     where the division needs to be unsigned regardless of the result type
+            tc = (UT)(lb - ub) / (-st) + 1;
+        } else {   // lb < ub
+            tc = 0;            // zero-trip
+        }
+    } else {       // st > 0
+        if ( ub >= lb ) {
+            // AC: cast to unsigned is needed for loops like (i=-2B; i<2B; i+=1B),
+            //     where the division needs to be unsigned regardless of the result type
+            tc = (UT)(ub - lb) / st + 1;
+        } else {   // ub < lb
+            tc = 0;            // zero-trip
+        }
     }
 
     // Any half-decent optimizer will remove this test when the blocks are empty since the macros expand to nothing
@@ -2242,8 +2260,11 @@ __kmp_dist_get_bounds(
         trip_count = *pupper - *plower + 1;
     } else if(incr == -1) {
         trip_count = *plower - *pupper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(*pupper - *plower) / incr + 1;
     } else {
-        trip_count = (ST)(*pupper - *plower) / incr + 1; // cast to signed to cover incr<0 case
+        trip_count = (UT)(*plower - *pupper) / ( -incr ) + 1;
     }
 
     if( trip_count <= nteams ) {

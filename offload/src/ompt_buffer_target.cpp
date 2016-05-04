@@ -9,8 +9,8 @@
 #include "ompt_target.h"
 
 
-ompt_thread_id_t* ompt_tid_buffer;
-ompt_get_thread_id_t my_ompt_get_thread_id;
+ompt_id_t* ompt_tid_buffer;
+ompt_get_thread_data_t my_ompt_get_thread_data;
 
 COIEVENT* ompt_buffer_request_event;
 COIEVENT* ompt_buffer_complete_event;
@@ -30,14 +30,14 @@ typedef struct {
     ompt_record_t* event_buffer;
     uint64_t buffer_size;
     uint64_t pos;
-} ompt_thread_data_t;
+} ompt_thread_data_buffer_t;
 
-std::map<uint64_t, ompt_thread_data_t> tdata;
+std::map<uint64_t, ompt_thread_data_buffer_t> tdata;
 
 void ompt_buffer_add_target_event(ompt_record_t event) {
     // The OMPT thread IDs start with 1 such that we will have to shift tid
     // by 1 to get the right array elements.
-    ompt_thread_id_t tid = my_ompt_get_thread_id() - 1;
+    ompt_id_t tid = my_ompt_get_thread_data().value - 1;
 
     if (tracing) {
         if (!tdata.count(tid)) {
@@ -59,7 +59,7 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
             pthread_mutex_unlock(&mutex_buffer_transfer);
         }
 
-        event.thread_id = tid + 1;
+        event.thread_data.value = tid + 1;
         event.dev_task_id = 0;
         tdata[tid].event_buffer[tdata[tid].pos] = event;
         tdata[tid].pos++;
@@ -106,7 +106,7 @@ void ompt_target_start_tracing(
     // FIXME: get buffers from host and save in global variables is ugly
     ompt_buffer_request_event = (COIEVENT*) buffers[0];
     ompt_buffer_complete_event = (COIEVENT*) buffers[1];
-    ompt_tid_buffer = (ompt_thread_id_t*) buffers[2];
+    ompt_tid_buffer = (ompt_id_t*) buffers[2];
 
     tracing = true;
 }
@@ -211,13 +211,13 @@ void ompt_get_buffer_pos(
 #define OMPT_FN_DECL(fn) OMPT_FN_TYPE(fn) fn
 
 OMPT_FN_DECL(ompt_set_callback);
-OMPT_FN_DECL(ompt_get_thread_id);
+OMPT_FN_DECL(ompt_get_thread_data);
 
 /*******************************************************************
  * required events 
  *******************************************************************/
 
-TEST_THREAD_TYPE_CALLBACK(ompt_event_thread_begin)
+TEST_NEW_THREAD_TYPE_CALLBACK(ompt_event_thread_begin)
 TEST_THREAD_TYPE_CALLBACK(ompt_event_thread_end)
 TEST_NEW_PARALLEL_CALLBACK(ompt_event_parallel_begin)
 TEST_PARALLEL_CALLBACK(ompt_event_parallel_end)
@@ -246,7 +246,7 @@ TEST_WAIT_CALLBACK(ompt_event_release_ordered)
 TEST_WAIT_CALLBACK(ompt_event_release_atomic)
 
 /* synchronous events */
-TEST_PARALLEL_CALLBACK(ompt_event_implicit_task_begin)
+TEST_NEW_IMPLICIT_TASK_CALLBACK(ompt_event_implicit_task_begin)
 TEST_PARALLEL_CALLBACK(ompt_event_implicit_task_end)
 TEST_PARALLEL_CALLBACK(ompt_event_initial_task_begin)
 TEST_PARALLEL_CALLBACK(ompt_event_initial_task_end)
@@ -296,13 +296,13 @@ TEST_THREAD_CALLBACK(ompt_event_flush)
 void ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version, unsigned int ompt_version) {
     printf("Initializing OMPT on device...\n");
 
-    my_ompt_get_thread_id = (ompt_get_thread_id_t) lookup("ompt_get_thread_id");
+    my_ompt_get_thread_data = (ompt_get_thread_data_t) lookup("ompt_get_thread_data");
 
 
     /* look up and bind OMPT API functions */
 
     OMPT_FN_LOOKUP(lookup,ompt_set_callback);
-    OMPT_FN_LOOKUP(lookup,ompt_get_thread_id);
+    OMPT_FN_LOOKUP(lookup,ompt_get_thread_data);
 
     /* required events */
 
@@ -374,5 +374,6 @@ void ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version,
 ompt_initialize_t
 ompt_tool()
 {
+    std::cout << "Register events on device\n";
     return ompt_initialize;
 }

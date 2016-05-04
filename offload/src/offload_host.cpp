@@ -2092,7 +2092,7 @@ bool OffloadDescriptor::offload(
 
 #if OMPT_SUPPORT
    // task id of implicit target task if any
-   ompt_task_id_t target_task_id = 0;
+   ompt_task_data_t target_task_data = ompt_task_id_none;
    int device_id = m_device.get_logical_index();
    int i;
    bool is_update = false;
@@ -2106,15 +2106,15 @@ bool OffloadDescriptor::offload(
      if (!is_empty) {
        // has implicit task
        ompt_target_task_begin();
-       target_task_id = ompt_get_task_id(0);
+       target_task_data = ompt_get_task_data(0);
 
        if (ompt_get_target_task_begin_callback()) {
-         // parent_task_id
-         ompt_task_id_t parent_task_id = ompt_get_task_id(1);
+         // parent_task_data
+         ompt_task_data_t parent_task_data = ompt_get_task_data(1);
          ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
 
-         ompt_get_target_task_begin_callback()(parent_task_id, parent_task_frame,
-           target_task_id, device_id, 0, ompt_target_task_target); // FIXME: m_device.m_funcs[Engine::c_func_compute]
+         ompt_get_target_task_begin_callback()(parent_task_data, parent_task_frame,
+           target_task_data, device_id, 0, ompt_target_task_target); // FIXME: m_device.m_funcs[Engine::c_func_compute]
        }
      } else {
        // We assume that we have an update region if one of
@@ -2141,22 +2141,22 @@ bool OffloadDescriptor::offload(
        if(!is_update){
          if(is_target_data_begin && ompt_get_target_data_begin_callback()) {
            // surrounding task (no implicit task for target data regions)
-           ompt_task_id_t task_id = ompt_get_task_id(0);
+           ompt_task_data_t task_data = ompt_get_task_data(0);
 
-           ompt_get_target_data_begin_callback()(task_id, device_id,
+           ompt_get_target_data_begin_callback()(task_data, device_id,
              0); // FIXME: m_device.m_funcs[Engine::c_func_compute]
          }
        } else {
          // update done in own target task
          ompt_target_task_begin();
-         target_task_id = ompt_get_task_id(0);
+         target_task_data = ompt_get_task_data(0);
 
          if (ompt_get_target_task_begin_callback()) {
-           ompt_task_id_t parent_task_id = ompt_get_task_id(1);
+           ompt_task_data_t parent_task_data = ompt_get_task_data(1);
            ompt_frame_t *parent_task_frame = ompt_get_task_frame(1);
 
-           ompt_get_target_task_begin_callback()(parent_task_id, parent_task_frame,
-             target_task_id, device_id, 0, ompt_target_task_update); // FIXME
+           ompt_get_target_task_begin_callback()(parent_task_data, parent_task_frame,
+             target_task_data, device_id, 0, ompt_target_task_update); // FIXME
          }
        }
      } // target update/data
@@ -2216,7 +2216,7 @@ bool OffloadDescriptor::offload(
 
 #ifdef OMPT_SUPPORT
     ompt_target_activity_id_t map_id;
-    ompt_task_id_t map_task_id = 0;
+    ompt_task_data_t map_task_data = ompt_task_id_none;
     uint32_t nitems;
     
     if (ompt_enabled() && ompt_get_target_data_map_begin_callback()) {
@@ -2260,9 +2260,9 @@ bool OffloadDescriptor::offload(
         
         if (nitems != 0) {
             map_id = ompt_target_activity_id_new();
-            map_task_id = ompt_get_task_id(0);
+            map_task_data = ompt_get_task_data(0);
             
-            ompt_get_target_data_map_begin_callback()(map_task_id, device_id,
+            ompt_get_target_data_map_begin_callback()(map_task_data, device_id,
                 items, nitems, map_id);
         }
         
@@ -2346,11 +2346,11 @@ bool OffloadDescriptor::offload(
         
         if (nitems != 0) {
             map_id = ompt_target_activity_id_new();
-            if (map_task_id == 0) {
-                map_task_id = ompt_get_task_id(0);
+            if (map_task_data.value == 0) {
+                map_task_data = ompt_get_task_data(0);
             }
             
-            ompt_get_target_data_map_begin_callback()(map_task_id, device_id,
+            ompt_get_target_data_map_begin_callback()(map_task_data, device_id,
                 items, nitems, map_id);
         }
         
@@ -2393,16 +2393,16 @@ bool OffloadDescriptor::offload(
 
      if (is_empty && !is_update && !is_target_data_begin) {
        if(ompt_get_target_data_end_callback()) {
-         ompt_task_id_t task_id = ompt_get_task_id(0);
-         ompt_get_target_data_end_callback()(task_id);
+         ompt_task_data_t task_data = ompt_get_task_data(0);
+         ompt_get_target_data_end_callback()(task_data);
        }
        target_info.is_target_data = 1;
      }
 
      // target task end
-     if (target_task_id) {
+     if (target_task_data.value != 0) {
        if (ompt_get_target_task_end_callback()) {
-         ompt_get_target_task_end_callback()(target_task_id);
+         ompt_get_target_task_end_callback()(target_task_data);
        }
        ompt_target_task_end();
      }

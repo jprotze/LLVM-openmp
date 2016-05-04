@@ -4,9 +4,15 @@
 #include <common/COIEvent_common.h>
 #include "ompt_buffer_host.h"
 #include <pthread.h>
+#include <iostream>
 
 extern Engine*  mic_engines;
 extern uint32_t mic_engines_total;
+
+#define COICHECK(res) if(res != COI_SUCCESS) \
+std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
+          << COIResultGetName(res) << std::endl;
+
 
 
 COIPIPELINE Tracer::create_pipeline() {
@@ -39,10 +45,10 @@ void Tracer::init_functions() {
                 ompt_funcs
         );
 
+    COICHECK(result);
+
     if (result == COI_SUCCESS) {
         m_funcs_inited = 1;
-    } else {
-        printf("ERROR: Getting function handle failed\n");
     }
 }
 
@@ -55,19 +61,16 @@ uint64_t Tracer::get_time() {
     COI_ACCESS_FLAGS flags = COI_SINK_READ;
 
     // Run the actual function
-    COIRESULT result = COI::PipelineRunFunction(
+    COICHECK(COI::PipelineRunFunction(
             pipeline, ompt_funcs[c_ompt_func_target_get_time],
             0, NULL, NULL,
             0, NULL,
             NULL, 0,
             &ret, sizeof(uint64_t),
-            NULL);
+            NULL));
 
-    if (result != COI_SUCCESS) {
-        printf("ERROR: Running pipeline function failed on target time request\n");
-    }
 
-    COI::PipelineDestroy(pipeline);
+    COICHECK(COI::PipelineDestroy(pipeline));
 
     return ret;
 }
@@ -78,30 +81,25 @@ void* Tracer::signal_buffer_allocated_helper(void *data) {
 
     Engine& engine = mic_engines[buffer_info.device_id % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
-    return tracer.signal_buffer_allocated(buffer_info.tid);
+    return tracer.signal_buffer_allocated(buffer_info.thread_data.value);
 }
 
 /**
  * Signals the allocation of the requested buffer to the device.
  */
 void* Tracer::signal_buffer_allocated(int tid) {
-    COIRESULT result;
     COIPIPELINE pipeline = create_pipeline();
 
     COI_ACCESS_FLAGS flags = COI_SINK_WRITE;
-    result = COI::PipelineRunFunction(
+    COICHECK(COI::PipelineRunFunction(
         pipeline, ompt_funcs[c_ompt_func_signal_buffer_allocated],
         1, &tdata[tid].buffer, &flags,
         0, NULL,
         &tdata[tid].host_size, sizeof(uint64_t),
         NULL, 0,
-        NULL);
+        NULL));
 
-    if (result != COI_SUCCESS) {
-        printf("ERROR: Running pipeline function failed on transfer buffer\n");
-    }
-
-    COI::PipelineDestroy(pipeline);
+    COICHECK(COI::PipelineDestroy(pipeline));
 }
 
 
@@ -140,29 +138,28 @@ void* Tracer::signal_buffer_truncated() {
 
 void Tracer::read_buffer(COIBUFFER buffer, void *target_host, size_t bytes) {
     // receive data from sink
-    COIRESULT result;
-    result = COI::BufferRead(
+    COICHECK(COI::BufferRead(
         buffer,
         0,
         target_host,
         bytes,
         COI_COPY_USE_DMA,
         0, NULL,
-        COI_EVENT_SYNC);
+        COI_EVENT_SYNC));
 }
 
 void Tracer::register_event(COIBUFFER buffer, COIEVENT* event) {
     // register event
-    COIEventRegisterUserEvent(event);
+    COICHECK(COIEventRegisterUserEvent(event));
     // transfer registered event to device
-    COI::BufferWrite(
+    COICHECK(COI::BufferWrite(
         buffer,
         0,
         event,
         sizeof(COIEVENT),
         COI_COPY_USE_DMA,
         0, NULL,
-        COI_EVENT_SYNC);
+        COI_EVENT_SYNC));
 }
 
 void Tracer::notification_callback_helper(COI_NOTIFICATIONS in_type, COIPROCESS in_Process, COIEVENT in_Event, const void* in_UserData) {
@@ -186,8 +183,8 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
     // buffer full event
     if (!memcmp(&in_Event, &m_full_event, sizeof(COIEVENT))) {
         // read tid
-        ompt_thread_id_t tid;
-        read_buffer(m_tid_buffer, &tid, sizeof(ompt_thread_id_t));
+        ompt_id_t tid;
+        read_buffer(m_tid_buffer, &tid, sizeof(ompt_id_t));
 
         read_buffer(tdata[tid].buffer,
                 tdata[tid].host_ptr,
@@ -203,7 +200,7 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
         // The built-in COI mechanism for an asynchronous call does not work here!
         ompt_buffer_info_t *thread_buffer_info = (ompt_buffer_info_t*) malloc(sizeof(ompt_buffer_info_t));
         thread_buffer_info->device_id = device_id;
-        thread_buffer_info->tid = tid;
+        thread_buffer_info->thread_data.value = tid;
 
         pthread_t my_thread;
         pthread_create(&my_thread, NULL, Tracer::signal_buffer_truncated_helper, (void*) thread_buffer_info);
@@ -213,24 +210,19 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
     // buffer request event
     if (!memcmp(&in_Event, &m_request_event, sizeof(COIEVENT))) {
         // read tid
-        ompt_thread_id_t tid;
-        read_buffer(m_tid_buffer, &tid, sizeof(ompt_thread_id_t));
+        ompt_id_t tid;
+        read_buffer(m_tid_buffer, &tid, sizeof(ompt_id_t));
 
         request_callback(&tdata[tid].host_ptr, &tdata[tid].host_size);
 
         // create buffer and attach to liboffload process
-        COIRESULT result = COI::BufferCreateFromMemory(
+        COICHECK(COI::BufferCreateFromMemory(
                 tdata[tid].host_size,
                 COI_BUFFER_NORMAL,
                 0,
                 tdata[tid].host_ptr,
                 1, &m_proc,
-                &tdata[tid].buffer);
-
-        if (result != COI_SUCCESS) {
-            printf("ERROR: Creating COIBuffer failed\n");
-            return;
-        }
+                &tdata[tid].buffer));
 
         register_event(request_event_buffer,
                 &(m_request_event));
@@ -241,7 +233,7 @@ void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Proc
         // The built-in COI mechanism for an asynchronous call does not work here!
         ompt_buffer_info_t *thread_buffer_info = (ompt_buffer_info_t*) malloc(sizeof(ompt_buffer_info_t));
         thread_buffer_info->device_id = device_id;
-        thread_buffer_info->tid = tid;
+        thread_buffer_info->thread_data.value = tid;
 
         pthread_t my_thread;
         pthread_create(&my_thread, NULL, Tracer::signal_buffer_allocated_helper, (void*) thread_buffer_info);
@@ -253,40 +245,37 @@ void Tracer::start() {
     m_tracing = 1;
 
     if (!m_paused) {
-        COIEventRegisterUserEvent(&m_request_event);
-        COIEventRegisterUserEvent(&m_full_event);
+        COICHECK(COIEventRegisterUserEvent(&m_request_event));
+        COICHECK(COIEventRegisterUserEvent(&m_full_event))
 
+        // TODO: Registration is not need, if already done before (e.g., in a previous target region)
         COIRegisterNotificationCallback(m_proc, Tracer::notification_callback_helper, &m_device_id);
 
         // create buffer for request and full event
         // and attach to liboffload process
-        COIRESULT result = COI::BufferCreateFromMemory(
+        COICHECK(COI::BufferCreateFromMemory(
                 sizeof(COIEVENT),
                 COI_BUFFER_NORMAL,
                 0,
                 &m_request_event,
                 1, &m_proc,
-                &request_event_buffer);
+                &request_event_buffer));
     
-        result = COI::BufferCreateFromMemory(
+        COICHECK(COI::BufferCreateFromMemory(
                 sizeof(COIEVENT),
                 COI_BUFFER_NORMAL,
                 0,
                 &m_full_event,
                 1, &m_proc,
-                &full_event_buffer);
+                &full_event_buffer));
 
-        result = COI::BufferCreate(
-                sizeof(ompt_thread_id_t),
+        COICHECK(COI::BufferCreate(
+                sizeof(ompt_id_t),
                 COI_BUFFER_NORMAL,
                 0,
                 NULL,
                 1, &m_proc,
-                &m_tid_buffer);
-
-        if (result != COI_SUCCESS) {
-            printf("ERROR: Creating buffer failed, %d\n", result);
-        }
+                &m_tid_buffer));
 
         init_functions();
 
@@ -295,36 +284,28 @@ void Tracer::start() {
         // transfer the event buffers to device
         COIBUFFER event_buffers[] = { request_event_buffer, full_event_buffer, m_tid_buffer };
         COI_ACCESS_FLAGS event_buffers_flags[] = { COI_SINK_WRITE, COI_SINK_WRITE, COI_SINK_WRITE };
-        result = COI::PipelineRunFunction(
+        COICHECK(COI::PipelineRunFunction(
                 pipeline, ompt_funcs[c_ompt_func_start_tracing],
                 3, event_buffers, event_buffers_flags,
                 0, NULL,
                 NULL, 0,
                 NULL, 0,
-                NULL);
+                NULL));
 
-        if (result != COI_SUCCESS) {
-            printf("ERROR: Running pipeline function failed\n");
-        }
-
-        COI::PipelineDestroy(pipeline);
+        COICHECK(COI::PipelineDestroy(pipeline));
 
         } else {
             m_paused = 0;
             COIPIPELINE pipeline = create_pipeline();
-            COIRESULT result = COI::PipelineRunFunction(
+            COICHECK(COI::PipelineRunFunction(
                 pipeline, ompt_funcs[c_ompt_func_restart_tracing],
                 0, NULL, NULL,
                 0, NULL,
                 NULL, 0,
                 NULL, 0,
-                NULL);
+                NULL));
 
-            if (result != COI_SUCCESS) {
-                printf("ERROR: Running pipeline function failed\n");
-            }
-
-            COI::PipelineDestroy(pipeline);
+            COICHECK(COI::PipelineDestroy(pipeline));
         }
 }
 
@@ -354,19 +335,16 @@ void Tracer::stop() {
 void Tracer::pause() {
     m_paused = 1;
     COIPIPELINE pipeline = create_pipeline();
-    COIRESULT result = COI::PipelineRunFunction(
+    COICHECK(COI::PipelineRunFunction(
             pipeline, ompt_funcs[c_ompt_func_stop_tracing],
             0, NULL, NULL,
             0, NULL,
             NULL, 0,
             NULL, 0,
-            NULL);
+            NULL));
 
-    if (result != COI_SUCCESS) {
-        printf("ERROR: Running pipeline function failed\n");
-    }
 
-    COI::PipelineDestroy(pipeline);
+    COICHECK(COI::PipelineDestroy(pipeline));
 }
 
 void Tracer::flush() {
@@ -376,13 +354,13 @@ void Tracer::flush() {
             it != tdata.end(); ++it) {
 
         uint64_t pos;
-        COIRESULT result = COI::PipelineRunFunction(
+        COICHECK(COI::PipelineRunFunction(
             pipeline, ompt_funcs[c_ompt_func_get_buffer_pos],
             0, NULL, NULL,
             0, NULL,
             &it->first, sizeof(uint64_t),
             &pos, sizeof(uint64_t),
-            NULL);
+            NULL));
 
         if (pos != 0) {
             read_buffer(it->second.buffer,
@@ -396,5 +374,5 @@ void Tracer::flush() {
         }
     }
 
-    COI::PipelineDestroy(pipeline);
+    COICHECK(COI::PipelineDestroy(pipeline));
 }

@@ -18,7 +18,7 @@ typedef void (*ompt_target_task_fn_t)(void);
 typedef struct ompt_target_lib_info_s {
     int                        *enabled;
     ompt_get_target_callback_t  get_target_callback;
-    ompt_get_task_id_t          get_task_id;
+    ompt_get_task_data_t        get_task_data;
     ompt_get_task_frame_t       get_task_frame;
     ompt_target_task_fn_t       target_task_begin;
     ompt_target_task_fn_t       target_task_end;
@@ -92,9 +92,9 @@ ompt_get_target_data_map_end_callback()
 
 
 // task information
-static inline ompt_task_id_t ompt_get_task_id(int depth)
+static inline ompt_task_data_t ompt_get_task_data(int depth)
 {
-    return ompt_info->get_task_id(depth);
+    return ompt_info->get_task_data(depth);
 }
 
 static inline ompt_frame_t *ompt_get_task_frame(int depth)

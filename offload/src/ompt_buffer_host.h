@@ -21,7 +21,7 @@ static const char *ompt_func_names[] = {
     "ompt_target_get_time"};
 
 typedef struct {
-    ompt_thread_id_t tid;
+    ompt_thread_data_t thread_data;
     int device_id;
 } ompt_buffer_info_t;
 

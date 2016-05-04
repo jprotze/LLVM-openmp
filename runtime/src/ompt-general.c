@@ -91,10 +91,10 @@ static ompt_initialize_t  ompt_initialize_fn = NULL;
 
 static ompt_interface_fn_t ompt_fn_lookup(const char *s);
 
-OMPT_API_ROUTINE ompt_task_id_t ompt_get_task_id(int depth);
+OMPT_API_ROUTINE ompt_task_data_t ompt_get_task_data(int depth);
 OMPT_API_ROUTINE ompt_frame_t *ompt_get_task_frame(int depth);
 
-OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void);
+OMPT_API_ROUTINE ompt_thread_data_t ompt_get_thread_data(void);
 
 /*****************************************************************************
  * initialization and finalization (private operations)
@@ -191,7 +191,7 @@ ompt_initialize_t ompt_tool_windows()
 typedef struct ompt_target_lib_info_s {
     int                        *enabled;
     ompt_get_target_callback_t  get_target_callback;
-    ompt_get_task_id_t          get_task_id;
+    ompt_get_task_data_t        get_task_data;
     ompt_get_task_frame_t       get_task_frame;
     ompt_target_task_fn_t       target_task_begin;
     ompt_target_task_fn_t       target_task_end;
@@ -200,7 +200,7 @@ typedef struct ompt_target_lib_info_s {
 const ompt_target_lib_info_t ompt_target_lib_info = {
     .enabled                    = &ompt_enabled,
     .get_target_callback        = &__ompt_get_target_callback,
-    .get_task_id                = &ompt_get_task_id,
+    .get_task_data              = &ompt_get_task_data,
     .get_task_frame             = &ompt_get_task_frame,
     .target_task_begin          = &__ompt_target_task_begin,
     .target_task_end            = &__ompt_target_task_end
@@ -310,8 +310,8 @@ void ompt_post_init()
         ompt_set_thread_state(root_thread, ompt_state_overhead);
 
         if (ompt_callbacks.ompt_callback(ompt_event_thread_begin)) {
-            ompt_callbacks.ompt_callback(ompt_event_thread_begin)
-                (ompt_thread_initial, ompt_get_thread_id());
+            ompt_callbacks.ompt_callback(ompt_event_thread_begin)(
+                ompt_thread_initial, __ompt_get_thread_data_internal());
         }
 
         ompt_set_thread_state(root_thread, ompt_state_work_serial);
@@ -411,9 +411,9 @@ OMPT_API_ROUTINE int ompt_get_callback(ompt_event_t evid, ompt_callback_t *cb)
  * parallel regions
  ****************************************************************************/
 
-OMPT_API_ROUTINE ompt_parallel_id_t ompt_get_parallel_id(int ancestor_level)
+OMPT_API_ROUTINE ompt_parallel_data_t ompt_get_parallel_data(int ancestor_level)
 {
-    return __ompt_get_parallel_id_internal(ancestor_level);
+    return __ompt_get_parallel_data_internal(ancestor_level);
 }
 
 
@@ -459,14 +459,14 @@ OMPT_API_ROUTINE void *ompt_get_idle_frame()
  ****************************************************************************/
 
 
-OMPT_API_ROUTINE ompt_thread_id_t ompt_get_thread_id(void)
+OMPT_API_ROUTINE ompt_thread_data_t ompt_get_thread_data(void)
 {
-    return __ompt_get_thread_id_internal();
+    return *__ompt_get_thread_data_internal();
 }
 
-OMPT_API_ROUTINE ompt_task_id_t ompt_get_task_id(int depth)
+OMPT_API_ROUTINE ompt_task_data_t ompt_get_task_data(int depth)
 {
-    return __ompt_get_task_id_internal(depth);
+    return __ompt_get_task_data_internal(depth);
 }
 
 

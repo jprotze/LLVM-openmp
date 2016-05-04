@@ -226,8 +226,8 @@ __kmp_track_dependence ( kmp_depnode_t *source, kmp_depnode_t *sink,
         kmp_taskdata_t * task_sink = KMP_TASK_TO_TASKDATA(sink_task);
 
         ompt_callbacks.ompt_callback(ompt_event_task_dependence_pair)(
-          task_source->ompt_task_info.task_id,
-          task_sink->ompt_task_info.task_id);
+          task_source->ompt_task_info.task_data,
+          task_sink->ompt_task_info.task_data);
     }
 #endif /* OMPT_SUPPORT && OMPT_TRACE */
 }
@@ -475,6 +475,16 @@ __kmpc_omp_task_with_deps( ident_t *loc_ref, kmp_int32 gtid, kmp_task_t * new_ta
                 new_taskdata->ompt_task_info.deps[ndeps+i].dependence_flags =
                   ompt_task_dependence_type_in;
         }
+        ompt_callbacks.ompt_callback(ompt_event_task_dependences)(
+            new_taskdata->ompt_task_info.task_data,
+            new_taskdata->ompt_task_info.deps,
+            new_taskdata->ompt_task_info.ndeps
+        );
+		/* We can now free the allocated memory for the dependencies */
+        /* For OMPD we might want to delay the free until task_end */
+		KMP_OMPT_DEPS_FREE (thread, new_taskdata->ompt_task_info.deps);
+        new_taskdata->ompt_task_info.deps = NULL;
+        new_taskdata->ompt_task_info.ndeps = 0;
     }
 #endif /* OMPT_SUPPORT && OMPT_TRACE */
 

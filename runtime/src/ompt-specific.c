@@ -10,8 +10,6 @@
 // macros
 //******************************************************************************
 
-#define GTID_TO_OMPT_THREAD_ID(id) ((ompt_thread_id_t) (id >=0) ? id + 1: 0)
-
 #define LWT_FROM_TEAM(team) (team)->t.ompt_serialized_team_info;
 
 #define OMPT_THREAD_ID_BITS 16
@@ -87,16 +85,10 @@ __ompt_get_teaminfo(int depth, int *size)
 ompt_task_info_t *
 __ompt_get_taskinfo(int depth)
 {
+    ompt_task_info_t *info = NULL;
     kmp_info_t *thr = ompt_get_thread();
 
     if (thr) {
-        if (thr->th.ompt_target_task_info.task_id != ompt_task_id_none) {
-            if (depth == 0) {
-                return &thr->th.ompt_target_task_info;
-            }
-            depth--;
-        }
-
         kmp_taskdata_t  *taskdata = thr->th.th_current_task;
         ompt_lw_taskteam_t *lwt = LWT_FROM_TEAM(taskdata->td_team);
 
@@ -116,13 +108,13 @@ __ompt_get_taskinfo(int depth)
         }
 
         if (lwt) {
-            return &lwt->ompt_task_info;
+            info = &lwt->ompt_task_info;
         } else if (taskdata) {
-            return &taskdata->ompt_task_info;
+            info = &taskdata->ompt_task_info;
         }
     }
 
-    return NULL;
+    return info;
 }
 
 
@@ -135,40 +127,18 @@ __ompt_get_taskinfo(int depth)
 // thread support
 //----------------------------------------------------------
 
-ompt_parallel_id_t
+ompt_id_t
 __ompt_thread_id_new()
 {
     static uint64_t ompt_thread_id = 1;
     return NEXT_ID(&ompt_thread_id, 0);
 }
 
-void
-__ompt_thread_begin(ompt_thread_type_t thread_type, int gtid)
+ompt_thread_data_t *
+__ompt_get_thread_data_internal()
 {
-    ompt_callbacks.ompt_callback(ompt_event_thread_begin)(
-        thread_type, GTID_TO_OMPT_THREAD_ID(gtid));
-}
-
-
-void
-__ompt_thread_end(ompt_thread_type_t thread_type, int gtid)
-{
-    ompt_callbacks.ompt_callback(ompt_event_thread_end)(
-        thread_type, GTID_TO_OMPT_THREAD_ID(gtid));
-}
-
-
-ompt_thread_id_t
-__ompt_get_thread_id_internal()
-{
-    // FIXME
-    // until we have a better way of assigning ids, use __kmp_get_gtid
-    // since the return value might be negative, we need to test that before
-    // assigning it to an ompt_thread_id_t, which is unsigned.
-    int id = __kmp_get_gtid();
-    assert(id >= 0);
-
-    return GTID_TO_OMPT_THREAD_ID(id);
+    kmp_info_t *thread = ompt_get_thread();
+    return &(thread->th.ompt_thread_info.thread_data);
 }
 
 //----------------------------------------------------------
@@ -178,8 +148,7 @@ __ompt_get_thread_id_internal()
 void
 __ompt_thread_assign_wait_id(void *variable)
 {
-    int gtid = __kmp_gtid_get_specific();
-    kmp_info_t *ti = ompt_get_thread_gtid(gtid);
+    kmp_info_t *ti = ompt_get_thread();
 
     ti->th.ompt_thread_info.wait_id = (ompt_wait_id_t) variable;
 }
@@ -213,7 +182,7 @@ __ompt_get_idle_frame_internal(void)
 // parallel region support
 //----------------------------------------------------------
 
-ompt_parallel_id_t
+ompt_id_t
 __ompt_parallel_id_new(int gtid)
 {
     static uint64_t ompt_parallel_id = 1;
@@ -230,12 +199,12 @@ __ompt_get_parallel_function_internal(int depth)
 }
 
 
-ompt_parallel_id_t
-__ompt_get_parallel_id_internal(int depth)
+ompt_parallel_data_t
+__ompt_get_parallel_data_internal(int depth)
 {
     ompt_team_info_t *info = __ompt_get_teaminfo(depth, NULL);
-    ompt_parallel_id_t id = info ? info->parallel_id : 0;
-    return id;
+    ompt_parallel_data_t id = ompt_parallel_id_none;
+    return info ? info->parallel_data :id;
 }
 
 
@@ -258,11 +227,11 @@ __ompt_get_parallel_team_size_internal(int depth)
 void
 __ompt_lw_taskteam_init(ompt_lw_taskteam_t *lwt, kmp_info_t *thr,
                         int gtid, void *microtask,
-                        ompt_parallel_id_t ompt_pid)
+                        ompt_parallel_data_t ompt_pid)
 {
-    lwt->ompt_team_info.parallel_id = ompt_pid;
+    lwt->ompt_team_info.parallel_data = ompt_pid;
     lwt->ompt_team_info.microtask = microtask;
-    lwt->ompt_task_info.task_id = 0;
+    lwt->ompt_task_info.task_data.value = 0;
     lwt->ompt_task_info.frame.reenter_runtime_frame = 0;
     lwt->ompt_task_info.frame.exit_runtime_frame = 0;
     lwt->ompt_task_info.function = NULL;
@@ -292,7 +261,7 @@ __ompt_lw_taskteam_unlink(kmp_info_t *thr)
 // task support
 //----------------------------------------------------------
 
-ompt_task_id_t
+ompt_id_t
 __ompt_task_id_new(int gtid)
 {
     static uint64_t ompt_task_id = 1;
@@ -300,12 +269,12 @@ __ompt_task_id_new(int gtid)
 }
 
 
-ompt_task_id_t
-__ompt_get_task_id_internal(int depth)
+ompt_task_data_t
+__ompt_get_task_data_internal(int depth)
 {
     ompt_task_info_t *info = __ompt_get_taskinfo(depth);
-    ompt_task_id_t task_id = info ?  info->task_id : 0;
-    return task_id;
+    ompt_task_data_t task_data = ompt_task_id_none;
+    return info ?  info->task_data : task_data;
 }
 
 
@@ -332,9 +301,9 @@ __ompt_get_task_frame_internal(int depth)
 //----------------------------------------------------------
 
 void
-__ompt_team_assign_id(kmp_team_t *team, ompt_parallel_id_t ompt_pid)
+__ompt_team_assign_id(kmp_team_t *team, ompt_parallel_data_t ompt_pid)
 {
-    team->t.ompt_team_info.parallel_id = ompt_pid;
+    team->t.ompt_team_info.parallel_data = ompt_pid;
 }
 
 
@@ -399,12 +368,12 @@ void __ompt_target_task_begin()
     thr->th.ompt_target_task_info.frame.exit_runtime_frame = NULL;
     thr->th.ompt_target_task_info.frame.reenter_runtime_frame = NULL;
     thr->th.ompt_target_task_info.function = NULL;
-    thr->th.ompt_target_task_info.task_id = __ompt_task_id_new(gtid);
+    thr->th.ompt_target_task_info.task_data.value = __ompt_task_id_new(gtid);
 }
 
 void __ompt_target_task_end() {
     kmp_info_t *thr = ompt_get_thread();
 
     // only task id is checked in __ompt_get_taskinfo
-    thr->th.ompt_target_task_info.task_id = ompt_task_id_none;
+    thr->th.ompt_target_task_info.task_data = ompt_task_id_none;
 }

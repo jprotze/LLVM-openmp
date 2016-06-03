@@ -90,13 +90,6 @@ __ompt_get_taskinfo(int depth)
     kmp_info_t *thr = ompt_get_thread();
 
     if (thr) {
-        if (thr->th.ompt_target_task_info.task_id != ompt_task_id_none) {
-            if (depth == 0) {
-                return &thr->th.ompt_target_task_info;
-            }
-            depth--;
-        }
-
         kmp_taskdata_t  *taskdata = thr->th.th_current_task;
         ompt_lw_taskteam_t *lwt = LWT_FROM_TEAM(taskdata->td_team);
 
@@ -365,21 +358,68 @@ ompt_callback_t __ompt_get_target_callback(ompt_event_t event)
     return callback;
 }
 
-void __ompt_target_task_begin()
+
+static ompt_task_id_t task_begin()
 {
     kmp_info_t *thr = ompt_get_thread();
     int gtid = thr->th.th_info.ds.ds_gtid;
 
-    // FIXME: fill with correct values!
-    thr->th.ompt_target_task_info.frame.exit_runtime_frame = NULL;
-    thr->th.ompt_target_task_info.frame.reenter_runtime_frame = NULL;
-    thr->th.ompt_target_task_info.function = NULL;
-    thr->th.ompt_target_task_info.task_id = __ompt_task_id_new(gtid);
+    ompt_task_id_t task_id = __ompt_task_id_new(gtid);
+
+    // set up lightweight task
+    ompt_lw_taskteam_t *lwt = (ompt_lw_taskteam_t *)
+        __kmp_allocate(sizeof(ompt_lw_taskteam_t));
+    __ompt_lw_taskteam_init(lwt, thr, gtid, NULL, ompt_parallel_id_none);
+
+    lwt->ompt_task_info.task_id = task_id;
+    lwt->ompt_task_info.frame.exit_runtime_frame = 0;
+
+    __ompt_lw_taskteam_link(lwt, thr);
+
+    return task_id;
+}
+
+static ompt_task_id_t task_end()
+{
+    ompt_task_id_t ret = ompt_task_id_none;
+    kmp_info_t *thr = ompt_get_thread();
+
+    // unlink if necessary. no-op if there is not a lightweight task.
+    ompt_lw_taskteam_t *lwt = __ompt_lw_taskteam_unlink(thr);
+    if (lwt) {
+        ret = lwt->ompt_task_info.task_id;
+        __kmp_free(lwt);
+    }
+
+    return ret;
+}
+
+void __ompt_target_task_begin()
+{
+    task_begin();
 }
 
 void __ompt_target_task_end() {
-    kmp_info_t *thr = ompt_get_thread();
+    task_end();
+}
 
-    // only task id is checked in __ompt_get_taskinfo
-    thr->th.ompt_target_task_info.task_id = ompt_task_id_none;
+void __ompt_target_initial_task_begin()
+{
+    ompt_task_id_t initial_task_id = task_begin();
+
+    if (ompt_callbacks.ompt_callback(ompt_event_initial_task_begin)) {
+        ompt_callbacks.ompt_callback(ompt_event_initial_task_begin)(
+            ompt_parallel_id_none, initial_task_id);
+    }
+}
+
+void __ompt_target_initial_task_end()
+{
+    ompt_task_id_t initial_task_id = task_end();
+
+    if (initial_task_id != ompt_task_id_none &&
+        ompt_callbacks.ompt_callback(ompt_event_initial_task_end)) {
+        ompt_callbacks.ompt_callback(ompt_event_initial_task_end)(
+            ompt_parallel_id_none, initial_task_id);
+    }
 }

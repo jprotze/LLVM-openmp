@@ -5420,8 +5420,6 @@ __kmp_launch_thread( kmp_info_t *this_thr )
         this_thr->th.ompt_thread_info.wait_id = 0;
         this_thr->th.ompt_thread_info.idle_frame = __builtin_frame_address(0);
 
-        this_thr->th.ompt_target_task_info.task_id = ompt_task_id_none;
-
         if (ompt_callbacks.ompt_callback(ompt_event_thread_begin)) {
             __ompt_thread_begin(ompt_thread_worker, gtid);
         }

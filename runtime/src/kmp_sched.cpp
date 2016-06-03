@@ -84,7 +84,7 @@ __kmp_for_static_init(
     typename traits_t< T >::signed_t  chunk
 ) {
     KMP_COUNT_BLOCK(OMP_FOR_static);
-    KMP_TIME_BLOCK (FOR_static_scheduling);
+    KMP_TIME_PARTITIONED_BLOCK(FOR_static_scheduling);
 
     typedef typename traits_t< T >::unsigned_t  UT;
     typedef typename traits_t< T >::signed_t    ST;
@@ -97,8 +97,8 @@ __kmp_for_static_init(
     register kmp_info_t *th = __kmp_threads[ gtid ];
 
 #if OMPT_SUPPORT && OMPT_TRACE
-    ompt_team_info_t *team_info = NULL; 
-    ompt_task_info_t *task_info = NULL; 
+    ompt_team_info_t *team_info = NULL;
+    ompt_task_info_t *task_info = NULL;
 
     if (ompt_enabled) {
         // Only fully initialize variables needed by OMPT if OMPT is enabled.
@@ -244,12 +244,11 @@ __kmp_for_static_init(
         trip_count = *pupper - *plower + 1;
     } else if (incr == -1) {
         trip_count = *plower - *pupper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(*pupper - *plower) / incr + 1;
     } else {
-        if ( incr > 1 ) {  // the check is needed for unsigned division when incr < 0
-            trip_count = (*pupper - *plower) / incr + 1;
-        } else {
-            trip_count = (*plower - *pupper) / ( -incr ) + 1;
-        }
+        trip_count = (UT)(*plower - *pupper) / (-incr) + 1;
     }
 
     if ( __kmp_env_consistency_check ) {
@@ -325,6 +324,29 @@ __kmp_for_static_init(
                 *plastiter = (tid == ((trip_count - 1)/( UT )chunk) % nth);
             break;
         }
+#if OMP_41_ENABLED
+    case kmp_sch_static_balanced_chunked:
+        {
+            register T old_upper = *pupper;
+            // round up to make sure the chunk is enough to cover all iterations
+            register UT span = (trip_count+nth-1) / nth;
+
+            // perform chunk adjustment
+            chunk = (span + chunk - 1) & ~(chunk-1);
+
+            span = chunk * incr;
+            *plower = *plower + (span * tid);
+            *pupper = *plower + span - incr;
+            if ( incr > 0 ) {
+              if ( *pupper > old_upper ) *pupper = old_upper;
+            } else
+              if ( *pupper < old_upper ) *pupper = old_upper;
+
+            if( plastiter != NULL )
+                *plastiter = ( tid == ((trip_count - 1)/( UT )chunk) );
+            break;
+        }
+#endif
     default:
         KMP_ASSERT2( 0, "__kmpc_for_static_init: unknown scheduling type" );
         break;
@@ -447,8 +469,11 @@ __kmp_dist_for_static_init(
         trip_count = *pupper - *plower + 1;
     } else if(incr == -1) {
         trip_count = *plower - *pupper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(*pupper - *plower) / incr + 1;
     } else {
-        trip_count = (ST)(*pupper - *plower) / incr + 1; // cast to signed to cover incr<0 case
+        trip_count = (UT)(*plower - *pupper) / (-incr) + 1;
     }
 
     *pstride = *pupper - *plower;  // just in case (can be unused)
@@ -514,8 +539,11 @@ __kmp_dist_for_static_init(
             trip_count = *pupperDist - *plower + 1;
         } else if(incr == -1) {
             trip_count = *plower - *pupperDist + 1;
+        } else if ( incr > 1 ) {
+            // upper-lower can exceed the limit of signed type
+            trip_count = (UT)(*pupperDist - *plower) / incr + 1;
         } else {
-            trip_count = (ST)(*pupperDist - *plower) / incr + 1;
+            trip_count = (UT)(*plower - *pupperDist) / (-incr) + 1;
         }
         KMP_DEBUG_ASSERT( trip_count );
         switch( schedule ) {
@@ -684,8 +712,11 @@ __kmp_team_static_init(
         trip_count = upper - lower + 1;
     } else if(incr == -1) {
         trip_count = lower - upper + 1;
+    } else if ( incr > 0 ) {
+        // upper-lower can exceed the limit of signed type
+        trip_count = (UT)(upper - lower) / incr + 1;
     } else {
-        trip_count = (ST)(upper - lower) / incr + 1; // cast to signed to cover incr<0 case
+        trip_count = (UT)(lower - upper) / (-incr) + 1;
     }
     if( chunk < 1 )
         chunk = 1;

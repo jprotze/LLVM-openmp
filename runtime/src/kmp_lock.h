@@ -23,6 +23,8 @@
 #include "kmp_debug.h"
 
 #ifdef __cplusplus
+#include <atomic>
+
 extern "C" {
 #endif // __cplusplus
 
@@ -233,16 +235,25 @@ extern void __kmp_destroy_nested_futex_lock( kmp_futex_lock_t *lck );
 // Ticket locks.
 // ----------------------------------------------------------------------------
 
+#ifdef __cplusplus
+
 struct kmp_base_ticket_lock {
     // `initialized' must be the first entry in the lock data structure!
-    volatile union kmp_ticket_lock * initialized;  // points to the lock union if in initialized state
-    ident_t const *     location;     // Source code location of omp_init_lock().
-    volatile kmp_uint32 next_ticket;  // ticket number to give to next thread which acquires
-    volatile kmp_uint32 now_serving;  // ticket number for thread which holds the lock
-    volatile kmp_int32  owner_id;     // (gtid+1) of owning thread, 0 if unlocked
-    kmp_int32           depth_locked; // depth locked, for nested locks only
-    kmp_lock_flags_t    flags;        // lock specifics, e.g. critical section lock
+    std::atomic<bool>     initialized;
+    volatile union kmp_ticket_lock *self; // points to the lock union
+    ident_t const *       location;       // Source code location of omp_init_lock().
+    std::atomic<unsigned> next_ticket;    // ticket number to give to next thread which acquires
+    std::atomic<unsigned> now_serving;    // ticket number for thread which holds the lock
+    std::atomic<int>      owner_id;       // (gtid+1) of owning thread, 0 if unlocked
+    std::atomic<int>      depth_locked;   // depth locked, for nested locks only
+    kmp_lock_flags_t      flags;          // lock specifics, e.g. critical section lock
 };
+
+#else // __cplusplus
+
+struct kmp_base_ticket_lock;
+
+#endif // !__cplusplus
 
 typedef struct kmp_base_ticket_lock kmp_base_ticket_lock_t;
 
@@ -260,7 +271,13 @@ typedef union kmp_ticket_lock kmp_ticket_lock_t;
 //    kmp_ticket_lock_t xlock = KMP_TICKET_LOCK_INITIALIZER( xlock );
 // Note the macro argument. It is important to make var properly initialized.
 //
-#define KMP_TICKET_LOCK_INITIALIZER( lock ) { { (kmp_ticket_lock_t *) & (lock), NULL, 0, 0, 0, -1 } }
+#define KMP_TICKET_LOCK_INITIALIZER( lock ) { { ATOMIC_VAR_INIT(true), \
+                                                              &(lock), \
+                                                                 NULL, \
+                                                  ATOMIC_VAR_INIT(0U), \
+                                                  ATOMIC_VAR_INIT(0U), \
+                                                   ATOMIC_VAR_INIT(0), \
+                                                  ATOMIC_VAR_INIT(-1)    } }
 
 extern int __kmp_acquire_ticket_lock( kmp_ticket_lock_t *lck, kmp_int32 gtid );
 extern int __kmp_test_ticket_lock( kmp_ticket_lock_t *lck, kmp_int32 gtid );
@@ -1200,7 +1217,7 @@ extern kmp_indirect_lock_t * __kmp_allocate_indirect_lock(void **, kmp_int32, km
 // Cleans up global states and data structures for managing dynamic user locks.
 extern void __kmp_cleanup_indirect_user_locks();
 
-// Default user lock sequence when not using hinted locks. 
+// Default user lock sequence when not using hinted locks.
 extern kmp_dyna_lockseq_t __kmp_user_lock_seq;
 
 // Jump table for "set lock location", available only for indirect locks.
@@ -1264,6 +1281,19 @@ __kmp_get_user_lock_owner(kmp_user_lock_p, kmp_uint32);
 # define KMP_LOCK_STRIP(v)         (v)
 
 #endif // KMP_USE_DYNAMIC_LOCK
+
+// data structure for using backoff within spin locks.
+typedef struct {
+    kmp_uint32 step;        // current step
+    kmp_uint32 max_backoff; // upper bound of outer delay loop
+    kmp_uint32 min_tick;    // size of inner delay loop in ticks (machine-dependent)
+} kmp_backoff_t;
+
+// Runtime's default backoff parameters
+extern kmp_backoff_t __kmp_spin_backoff_params;
+
+// Backoff function
+extern void __kmp_spin_backoff(kmp_backoff_t *);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -1,12 +1,16 @@
 # CMakeLists.txt file for unit testing OpenMP Library
 include(FindPythonInterp)
 include(CheckTypeSize)
+include(CheckLibraryExists)
 
 if(NOT PYTHONINTERP_FOUND)
   libomp_warning_say("Could not find Python.")
   libomp_warning_say("The check-libomp target will not be available!")
   return()
 endif()
+
+# Some tests use math functions
+check_library_exists(m sqrt "" LIBOMP_HAVE_LIBM)
 
 macro(pythonize_bool var)
   if (${var})
@@ -20,6 +24,7 @@ pythonize_bool(LIBOMP_USE_HWLOC)
 pythonize_bool(LIBOMP_OMPT_SUPPORT)
 pythonize_bool(LIBOMP_OMPT_BLAME)
 pythonize_bool(LIBOMP_OMPT_TRACE)
+pythonize_bool(LIBOMP_HAVE_LIBM)
 
 set(LIBOMP_TEST_CFLAGS "" CACHE STRING
   "Extra compiler flags to send to the test compiler")
@@ -38,7 +43,7 @@ if(${LIBOMP_STANDALONE_BUILD})
   set(LIBOMP_LLVM_LIT_EXECUTABLE "" CACHE STRING
     "Path to llvm-lit")
   find_program(LIT_EXECUTABLE
-    NAMES llvm-lit
+    NAMES llvm-lit lit.py
     HINTS ${LIBOMP_LLVM_LIT_EXECUTABLE}
     PATHS ${OPENMP_LLVM_TOOLS_DIR})
   if(NOT LIT_EXECUTABLE)

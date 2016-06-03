@@ -382,7 +382,7 @@ typedef void (*ompt_new_parallel_callback_t) (
 typedef void (*ompt_end_parallel_callback_t) (
     ompt_parallel_data_t parallel_data, /* data of parallel region    */
     ompt_task_data_t task_data,       /* data of task                 */
-    ompt_invoker_t invoker            /* who invokes master task?     */ 
+    ompt_invoker_t invoker            /* who invokes master task?     */
 );
 
 /* tasks */

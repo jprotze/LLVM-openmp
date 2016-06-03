@@ -200,8 +200,9 @@ elseif("${libomp_build_type_lowercase}" STREQUAL "minsizerel")
   set(MINSIZEREL_BUILD TRUE)
 endif()
 
-# Include itt notify interface? Right now, always.
-set(LIBOMP_USE_ITT_NOTIFY TRUE)
+# Include itt notify interface?
+set(LIBOMP_USE_ITT_NOTIFY TRUE CACHE BOOL
+  "Enable ITT notify?")
 
 # normal, profile, stubs library.
 set(NORMAL_LIBRARY FALSE)
@@ -323,12 +324,12 @@ set(LIBOMP_LIB_NAME ${LIBOMP_DEFAULT_LIB_NAME} CACHE STRING "Base OMP library na
 
 if(${LIBOMP_ENABLE_SHARED})
   set(LIBOMP_LIBRARY_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
-  set(LIBOMP_LIBRARY_KIND SHARED) 
-  set(LIBOMP_INSTALL_KIND LIBRARY) 
+  set(LIBOMP_LIBRARY_KIND SHARED)
+  set(LIBOMP_INSTALL_KIND LIBRARY)
 else()
   set(LIBOMP_LIBRARY_SUFFIX ${CMAKE_STATIC_LIBRARY_SUFFIX})
-  set(LIBOMP_LIBRARY_KIND STATIC) 
-  set(LIBOMP_INSTALL_KIND ARCHIVE) 
+  set(LIBOMP_LIBRARY_KIND STATIC)
+  set(LIBOMP_INSTALL_KIND ARCHIVE)
 endif()
 
 set(LIBOMP_LIB_FILE ${LIBOMP_LIB_NAME}${LIBOMP_LIBRARY_SUFFIX})
@@ -354,6 +355,7 @@ if(${LIBOMP_STANDALONE_BUILD})
   libomp_say("Build                -- ${LIBOMP_BUILD}")
   libomp_say("Use Stats-gathering  -- ${LIBOMP_STATS}")
   libomp_say("Use Debugger-support -- ${LIBOMP_USE_DEBUGGER}")
+  libomp_say("Use ITT notify       -- ${LIBOMP_USE_ITT_NOTIFY}")
   libomp_say("Use OMPT-support     -- ${LIBOMP_OMPT_SUPPORT}")
   if(${LIBOMP_OMPT_SUPPORT})
     libomp_say("Use OMPT-blame       -- ${LIBOMP_OMPT_BLAME}")

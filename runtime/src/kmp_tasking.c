@@ -1476,6 +1476,19 @@ __kmpc_taskgroup( ident_t* loc, int gtid )
     tg_new->cancel_request = cancel_noreq;
     tg_new->parent = taskdata->td_taskgroup;
     taskdata->td_taskgroup = tg_new;
+
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_taskgroup_begin)) {
+        kmp_team_t *team = thread->th.th_team;
+        ompt_task_data_t my_task_data = taskdata->ompt_task_info.task_data;
+        // FIXME: I think this is wrong for lwt!
+        ompt_parallel_data_t my_parallel_data = team->t.ompt_team_info.parallel_data;
+
+        ompt_callbacks.ompt_callback(ompt_event_taskgroup_begin)(
+            my_parallel_data, my_task_data);
+    }
+#endif
 }
 
 
@@ -1527,6 +1540,19 @@ __kmpc_end_taskgroup( ident_t* loc, int gtid )
     __kmp_thread_free( thread, taskgroup );
 
     KA_TRACE(10, ("__kmpc_end_taskgroup(exit): T#%d task %p finished waiting\n", gtid, taskdata) );
+
+#if OMPT_SUPPORT && OMPT_TRACE
+    if (ompt_enabled &&
+        ompt_callbacks.ompt_callback(ompt_event_taskgroup_end)) {
+        kmp_team_t *team = thread->th.th_team;
+        ompt_task_data_t my_task_data = taskdata->ompt_task_info.task_data;
+        // FIXME: I think this is wrong for lwt!
+        ompt_parallel_data_t my_parallel_data = team->t.ompt_team_info.parallel_data;
+
+        ompt_callbacks.ompt_callback(ompt_event_taskgroup_end)(
+            my_parallel_data, my_task_data);
+    }
+#endif
 }
 #endif
 

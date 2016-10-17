@@ -1511,14 +1511,12 @@ __kmp_fork_call(
 
                 __ompt_lw_taskteam_link(&lw_taskteam, master_th);
 
-#if OMPT_TRACE
                 /* OMPT implicit task begin */
                 implicit_task_data = &(lw_taskteam.ompt_task_info.task_data);
                 if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)) {
                     ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)(
                         ompt_parallel_data, implicit_task_data);
                 }
-#endif
 
                 /* OMPT state */
                 master_th->th.ompt_thread_info.state = ompt_state_work_parallel;
@@ -1540,7 +1538,6 @@ __kmp_fork_call(
 #if OMPT_SUPPORT
             *exit_runtime_p = NULL;
             if (ompt_enabled) {
-#if OMPT_TRACE
                 lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
                 if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
@@ -1551,7 +1548,6 @@ __kmp_fork_call(
                 __ompt_lw_taskteam_unlink(master_th);
                 // reset clear the task id only after unlinking the task
                 lw_taskteam.ompt_task_info.task_data = ompt_task_id_none;
-#endif
 
                 if (ompt_callbacks.ompt_callback(ompt_event_parallel_end)) {
                     ompt_callbacks.ompt_callback(ompt_event_parallel_end)(
@@ -1710,13 +1706,11 @@ __kmp_fork_call(
 
                     __ompt_lw_taskteam_link(&lw_taskteam, master_th);
 
-#if OMPT_TRACE
                     implicit_task_data = &(lw_taskteam.ompt_task_info.task_data);
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)) {
                         ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)(
                             ompt_parallel_data, implicit_task_data);
                     }
-#endif
 
                     /* OMPT state */
                     master_th->th.ompt_thread_info.state = ompt_state_work_parallel;
@@ -1740,12 +1734,10 @@ __kmp_fork_call(
                 if (ompt_enabled) {
                     lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
-#if OMPT_TRACE
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
                         ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
                             ompt_parallel_data, *implicit_task_data);
                     }
-#endif
 
                     __ompt_lw_taskteam_unlink(master_th);
                     // reset clear the task id only after unlinking the task
@@ -1815,14 +1807,12 @@ __kmp_fork_call(
 
                     __ompt_lw_taskteam_link(&lw_taskteam, master_th);
 
-#if OMPT_TRACE
                     /* OMPT implicit task begin */
                     implicit_task_data = &(lw_taskteam.ompt_task_info.task_data);
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)) {
                         ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)(
                             ompt_parallel_data, implicit_task_data);
                     }
-#endif
 
                     /* OMPT state */
                     master_th->th.ompt_thread_info.state = ompt_state_work_parallel;
@@ -1844,14 +1834,12 @@ __kmp_fork_call(
 #if OMPT_SUPPORT
                 *exit_runtime_p = NULL;
                 if (ompt_enabled) {
-#if OMPT_TRACE
                     lw_taskteam.ompt_task_info.frame.exit_runtime_frame = NULL;
 
                     if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
                         ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)(
                             ompt_parallel_data, *implicit_task_data);
                     }
-#endif
 
                     __ompt_lw_taskteam_unlink(master_th);
                     // reset clear the task id only after unlinking the task
@@ -2420,7 +2408,7 @@ __kmp_join_call(ident_t *loc, int gtid
     }
     KMP_DEBUG_ASSERT( root->r.r_in_parallel >= 0 );
 
-#if OMPT_SUPPORT && OMPT_TRACE
+#if OMPT_SUPPORT
     if(ompt_enabled){
         ompt_task_info_t *task_info = __ompt_get_taskinfo(0);
         if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
@@ -5520,7 +5508,7 @@ __kmp_launch_thread( kmp_info_t *this_thr )
             }
             /* join barrier after parallel region */
             __kmp_join_barrier( gtid );
-#if OMPT_SUPPORT && OMPT_TRACE
+#if OMPT_SUPPORT
             if (ompt_enabled) {
                 if (ompt_callbacks.ompt_callback(ompt_event_implicit_task_end)) {
                     // don't access *pteam here: it may have already been freed
@@ -6832,7 +6820,6 @@ __kmp_invoke_task_func( int gtid )
         exit_runtime_p = &dummy;
     }
 
-#if OMPT_TRACE
     my_task_data = &(team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_data);
     my_parallel_data = team->t.ompt_team_info.parallel_data;
     if (ompt_enabled &&
@@ -6840,7 +6827,6 @@ __kmp_invoke_task_func( int gtid )
         ompt_callbacks.ompt_callback(ompt_event_implicit_task_begin)(
             my_parallel_data, my_task_data);
     }
-#endif
 #endif
 
     {

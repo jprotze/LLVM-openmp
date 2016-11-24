@@ -294,7 +294,7 @@ TEST_THREAD_CALLBACK(ompt_event_flush)
 #define CHECK(EVENT) ompt_set_callback(EVENT, (ompt_callback_t) my_##EVENT); 
 
 void ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version, unsigned int ompt_version) {
-    printf("Initializing OMPT on device...\n");
+    fprintf(stderr, "Initializing OMPT on device...\n");
 
     my_ompt_get_thread_data = (ompt_get_thread_data_t) lookup("ompt_get_thread_data");
 
@@ -374,6 +374,6 @@ void ompt_initialize(ompt_function_lookup_t lookup, const char *runtime_version,
 ompt_initialize_t
 ompt_tool()
 {
-    std::cout << "Register events on device\n";
+    std::cerr << "Register events on device\n";
     return ompt_initialize;
 }

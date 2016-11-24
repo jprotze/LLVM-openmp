@@ -16,7 +16,7 @@
 namespace ORSL {
 
 static bool            is_enabled = false;
-static const ORSLTag   my_tag = "Offload";
+static const ORSLTag   my_tag = (const ORSLTag) "Offload";
 
 void init()
 {

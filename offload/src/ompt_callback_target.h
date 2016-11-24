@@ -10,7 +10,6 @@
 #define TEST_THREAD_CALLBACK(EVENT) \
 void my_##EVENT(ompt_thread_data_t thread_data) \
 { \
-  printf("(MIC) %d: %s: thread_data=%lu\n", omp_get_thread_num(), #EVENT, thread_data.value); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -28,7 +27,6 @@ void my_##EVENT(ompt_thread_data_t thread_data) \
 void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_data_t thread_data) \
 { \
   const char * type_strings[] = {"initial", "worker", "other"}; \
-  printf("(MIC) %d: %s: thread_data=%d thread_type=%d type_string='%s'\n", omp_get_thread_num(), #EVENT, thread_data.value, thread_type, type_strings[thread_type-1]); \
   fflush(stdout); \
   \
   ompt_record_t event;\
@@ -48,7 +46,6 @@ void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_data_t thread_data) 
 void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_data_t* thread_data) \
 { \
   const char * type_strings[] = {"initial", "worker", "other"}; \
-  printf("(MIC) %d: %s: thread_data=%d thread_type=%d type_string='%s'\n", omp_get_thread_num(), #EVENT, thread_data->value, thread_type, type_strings[thread_type-1]); \
   fflush(stdout); \
   \
   ompt_record_t event;\
@@ -68,7 +65,6 @@ void my_##EVENT(ompt_thread_type_t thread_type, ompt_thread_data_t* thread_data)
 void my_##EVENT ( \
   ompt_wait_id_t waitid)            /* address of wait obj */ \
 { \
-  printf("(MIC) %d: %s: wait_id=%lu\n", omp_get_thread_num(), #EVENT, waitid); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -85,7 +81,6 @@ void my_##EVENT ( \
 ompt_parallel_data_t parallel_data,   /* id of parallel region       */ \
 ompt_task_data_t* task_data)           /* id for task                 */ \
 { \
-  printf("(MIC) %d: %s: parallel_data=%lu task_data=%d\n", omp_get_thread_num(), #EVENT, parallel_data.value, task_data->value); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -103,7 +98,6 @@ void my_##EVENT ( \
 ompt_parallel_data_t parallel_data,   /* id of parallel region       */ \
 ompt_task_data_t task_data)           /* id for task                 */ \
 { \
-  printf("(MIC) %d: %s: parallel_data=%lu task_data=%d\n", omp_get_thread_num(), #EVENT, parallel_data.value, task_data.value); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -122,7 +116,6 @@ ompt_parallel_data_t parallel_data,   /* id of parallel region       */ \
 ompt_task_data_t task_data,           /* id for task                 */ \
 void *workshare_function)           /* ptr to outlined function  */ \
 { \
-  printf("(MIC) %d: %s: parallel_data=%lu task_data=%lu workshare_function=%p\n", omp_get_thread_num(), #EVENT, parallel_data.value, task_data, workshare_function); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -145,7 +138,6 @@ void my_##EVENT ( \
   void *parallel_function,          /* outlined function            */ \
   ompt_invoker_t invoker)            /* who invokes master task?     */\
 { \
-  printf("(MIC) %d: %s: parent_task_data=%lu parent_task_frame=%p parallel_data=%d team_size=%lu parallel_function=%p\n", omp_get_thread_num(), #EVENT, parent_task_data, parent_task_frame, parallel_data->value, requested_team_size, parallel_function); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -165,7 +157,6 @@ void my_##EVENT ( \
 void my_##EVENT ( \
 ompt_task_data_t task_data)            /* tool data for task          */ \
 { \
-  printf("(MIC) %d: %s: task_data=%lu\n", omp_get_thread_num(), #EVENT, task_data); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -182,7 +173,6 @@ void my_##EVENT ( \
   ompt_task_data_t suspended_task_data, /* tool data for suspended task */ \
   ompt_task_data_t resumed_task_data)   /* tool data for resumed task   */ \
 { \
-  printf("(MIC) %d: %s: suspended_task_data=%lu resumed_task_data=%lu\n", omp_get_thread_num(), #EVENT, suspended_task_data, resumed_task_data); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -202,7 +192,6 @@ void my_##EVENT ( \
   ompt_task_data_t *new_task_data,   /* id of parallel region       */ \
   void *new_task_function)          /* outlined function           */ \
 { \
-  printf("(MIC) %d: %s: parent_task_data=%lu parent_task_frame-=%p new_task_data=%d parallel_function=%p\n", omp_get_thread_num(), #EVENT, parent_task_data, parent_task_frame, new_task_data->value, new_task_function); \
   fflush(stdout); \
   ompt_record_t event;\
   event.type = ##EVENT; \
@@ -222,7 +211,6 @@ void my_##EVENT( \
 uint64_t command,                /* command of control call      */ \
 uint64_t modifier)                /* modifier of control call     */ \
 { \
-  printf("(MIC) %d: %s: command=%lu modifier=%lu\n", omp_get_thread_num(), #EVENT, command, modifier); \
   fflush(stdout); \
 }
 
@@ -230,7 +218,6 @@ uint64_t modifier)                /* modifier of control call     */ \
 #define TEST_CALLBACK(EVENT) \
 void my_##EVENT() \
 { \
-  printf("(MIC) %d: %s\n", omp_get_thread_num(), #EVENT); \
   fflush(stdout); \
 }
 
@@ -241,7 +228,6 @@ void my_##event( \
   void *target_function              /* pointer to outlined function */ \
     ) \
 { \
-  printf("(MIC) %d: %s: task_data=%llu device_id=%llu target_function=%llu\n", omp_get_thread_num(), #event, task_data, device_id, target_function); \
   fflush(0); \
 }
 
@@ -254,7 +240,6 @@ void my_##event( \
   void *target_function              /* pointer to outlined function */ \
     ) \
 { \
-  printf("(MIC) %d: %s: task_data=%llu target_task_data=%llu device_id=%llu target_function=%llu\n", omp_get_thread_num(), #event, task_data, target_task_data, device_id, target_function); \
   fflush(0); \
 } 
 
@@ -265,7 +250,6 @@ void my_##event( \
   ompt_target_task_data_t target_task_data         /* data of target* region */ \
     ) \
 { \
-  printf("(MIC) %d: %s: task_data=%llu target_task_data=%llu\n", omp_get_thread_num(), #event, task_data, target_task_data); \
   fflush(0); \
 }
 
@@ -280,12 +264,5 @@ void my_##event( \
   void *target_map_code \
     ) \
 { \
-  printf("(MIC) %d: %s: task_data=%llu device_id=%llu host_addr=%p device_addr=%p bytes=%llu mapping_flags=%llu\n", \
-     omp_get_thread_num(), \
-     #event, \
-     task_data, \
-     device_id, \
-     host_addr, device_addr, \
-     bytes, mapping_flags); \
   fflush(0); \
 } 

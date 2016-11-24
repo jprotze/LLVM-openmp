@@ -7,11 +7,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef RDTSC_H_INCLUDED
+#define RDTSC_H_INCLUDED
+
 #include <stdint.h>
 
-uint64_t _rdtsc()
+static uint64_t _rdtsc()
 {
   uint32_t eax, edx;
   asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
   return ((uint64_t)edx << 32) | eax;
 }
+
+#endif // RDTSC_H_INCLUDED

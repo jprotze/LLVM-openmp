@@ -26,8 +26,10 @@ COIPIPELINE Tracer::create_pipeline() {
         &pipeline
     );
 
+    COICHECK(result);
+
     if (result != COI_SUCCESS) {
-        printf("ERROR: Could not create pipeline\n");
+        printf("ERROR: Could not create pipeline. m_proc=%x\n", m_proc);
     }
 
     return pipeline;

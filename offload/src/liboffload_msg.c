@@ -8,8 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 
-
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 // ===========================================================================
 // Bring in the static string table and the enumerations for indexing into
@@ -25,8 +27,17 @@
 // ===========================================================================
 
 
-    void write_message(FILE * file, int msgCode) {
-        fputs(MESSAGE_TABLE_NAME[ msgCode ], file);
+    void write_message(FILE * file, int msgCode, va_list args_p) {
+        va_list args;
+        char buf[1024];
+
+        va_copy(args, args_p);
+        buf[0] = '\n';
+        vsnprintf(buf + 1, sizeof(buf) - 2,
+            MESSAGE_TABLE_NAME[ msgCode ], args);
+        strcat(buf, "\n");
+        va_end(args);
+        fputs(buf, file);
         fflush(file);
     }
 

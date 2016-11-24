@@ -280,6 +280,8 @@ void MicEnvVar::mic_parse_env_var_list(
 
         int sz = c - env_var_name;
         env_var_def = (char*)malloc(sz);
+        if (env_var_def == NULL)
+          LIBOFFLOAD_ERROR(c_malloc);
         memcpy(env_var_def, env_var_name, sz);
         env_var_def[sz] = 0;
 
@@ -348,6 +350,8 @@ char** MicEnvVar::create_environ_for_card(int card_num)
 
     int new_env_size = new_env.size();
     rez = (char**) malloc((new_env_size + 1) * sizeof(char*));
+    if (rez == NULL)
+      LIBOFFLOAD_ERROR(c_malloc);
     std::copy(new_env.begin(), new_env.end(), rez);
     rez[new_env_size] = 0;
     return rez;

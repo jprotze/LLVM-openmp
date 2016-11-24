@@ -66,7 +66,7 @@ static int omp_get_int_from_host(
     return setting;
 }
 
-void omp_set_num_threads_lrb(
+DLL_LOCAL void omp_set_num_threads_lrb(
     void *ofld
 )
 {
@@ -76,7 +76,7 @@ void omp_set_num_threads_lrb(
     omp_set_num_threads(num_threads);
 }
 
-void omp_get_max_threads_lrb(
+DLL_LOCAL void omp_get_max_threads_lrb(
     void *ofld
 )
 {
@@ -86,7 +86,7 @@ void omp_get_max_threads_lrb(
     omp_send_int_to_host(ofld, num_threads);
 }
 
-void omp_get_num_procs_lrb(
+DLL_LOCAL void omp_get_num_procs_lrb(
     void *ofld
 )
 {
@@ -96,7 +96,7 @@ void omp_get_num_procs_lrb(
     omp_send_int_to_host(ofld, num_procs);
 }
 
-void omp_set_dynamic_lrb(
+DLL_LOCAL void omp_set_dynamic_lrb(
     void *ofld
 )
 {
@@ -106,7 +106,7 @@ void omp_set_dynamic_lrb(
     omp_set_dynamic(dynamic);
 }
 
-void omp_get_dynamic_lrb(
+DLL_LOCAL void omp_get_dynamic_lrb(
     void *ofld
 )
 {
@@ -116,7 +116,7 @@ void omp_get_dynamic_lrb(
     omp_send_int_to_host(ofld, dynamic);
 }
 
-void omp_set_nested_lrb(
+DLL_LOCAL void omp_set_nested_lrb(
     void *ofld
 )
 {
@@ -126,7 +126,7 @@ void omp_set_nested_lrb(
     omp_set_nested(nested);
 }
 
-void omp_get_nested_lrb(
+DLL_LOCAL void omp_get_nested_lrb(
     void *ofld
 )
 {
@@ -136,7 +136,7 @@ void omp_get_nested_lrb(
     omp_send_int_to_host(ofld, nested);
 }
 
-void omp_set_schedule_lrb(
+DLL_LOCAL void omp_set_schedule_lrb(
     void *ofld_
 )
 {
@@ -160,7 +160,7 @@ void omp_set_schedule_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_get_schedule_lrb(
+DLL_LOCAL void omp_get_schedule_lrb(
     void *ofld_
 )
 {
@@ -186,7 +186,7 @@ void omp_get_schedule_lrb(
 
 // lock API functions
 
-void omp_init_lock_lrb(
+DLL_LOCAL void omp_init_lock_lrb(
     void *ofld_
 )
 {
@@ -204,7 +204,7 @@ void omp_init_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_destroy_lock_lrb(
+DLL_LOCAL void omp_destroy_lock_lrb(
     void *ofld_
 )
 {
@@ -222,7 +222,7 @@ void omp_destroy_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_set_lock_lrb(
+DLL_LOCAL void omp_set_lock_lrb(
     void *ofld_
 )
 {
@@ -240,7 +240,7 @@ void omp_set_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_unset_lock_lrb(
+DLL_LOCAL void omp_unset_lock_lrb(
     void *ofld_
 )
 {
@@ -258,7 +258,7 @@ void omp_unset_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_test_lock_lrb(
+DLL_LOCAL void omp_test_lock_lrb(
     void *ofld_
 )
 {
@@ -284,7 +284,7 @@ void omp_test_lock_lrb(
 
 // nested lock API functions
 
-void omp_init_nest_lock_lrb(
+DLL_LOCAL void omp_init_nest_lock_lrb(
     void *ofld_
 )
 {
@@ -302,7 +302,7 @@ void omp_init_nest_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_destroy_nest_lock_lrb(
+DLL_LOCAL void omp_destroy_nest_lock_lrb(
     void *ofld_
 )
 {
@@ -320,7 +320,7 @@ void omp_destroy_nest_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_set_nest_lock_lrb(
+DLL_LOCAL void omp_set_nest_lock_lrb(
     void *ofld_
 )
 {
@@ -338,7 +338,7 @@ void omp_set_nest_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_unset_nest_lock_lrb(
+DLL_LOCAL void omp_unset_nest_lock_lrb(
     void *ofld_
 )
 {
@@ -356,7 +356,7 @@ void omp_unset_nest_lock_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void omp_test_nest_lock_lrb(
+DLL_LOCAL void omp_test_nest_lock_lrb(
     void *ofld_
 )
 {
@@ -382,7 +382,7 @@ void omp_test_nest_lock_lrb(
 
 // kmp API functions
 
-void kmp_set_stacksize_lrb(
+DLL_LOCAL void kmp_set_stacksize_lrb(
     void *ofld
 )
 {
@@ -392,7 +392,7 @@ void kmp_set_stacksize_lrb(
     kmp_set_stacksize(size);
 }
 
-void kmp_get_stacksize_lrb(
+DLL_LOCAL void kmp_get_stacksize_lrb(
     void *ofld
 )
 {
@@ -402,7 +402,7 @@ void kmp_get_stacksize_lrb(
     omp_send_int_to_host(ofld, size);
 }
 
-void kmp_set_stacksize_s_lrb(
+DLL_LOCAL void kmp_set_stacksize_s_lrb(
     void *ofld
 )
 {
@@ -412,7 +412,7 @@ void kmp_set_stacksize_s_lrb(
     kmp_set_stacksize_s(size);
 }
 
-void kmp_get_stacksize_s_lrb(
+DLL_LOCAL void kmp_get_stacksize_s_lrb(
     void *ofld
 )
 {
@@ -422,7 +422,7 @@ void kmp_get_stacksize_s_lrb(
     omp_send_int_to_host(ofld, size);
 }
 
-void kmp_set_blocktime_lrb(
+DLL_LOCAL void kmp_set_blocktime_lrb(
     void *ofld
 )
 {
@@ -432,7 +432,7 @@ void kmp_set_blocktime_lrb(
     kmp_set_blocktime(time);
 }
 
-void kmp_get_blocktime_lrb(
+DLL_LOCAL void kmp_get_blocktime_lrb(
     void *ofld
 )
 {
@@ -442,7 +442,7 @@ void kmp_get_blocktime_lrb(
     omp_send_int_to_host(ofld, time);
 }
 
-void kmp_set_library_serial_lrb(
+DLL_LOCAL void kmp_set_library_serial_lrb(
     void *ofld_
 )
 {
@@ -453,7 +453,7 @@ void kmp_set_library_serial_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_set_library_turnaround_lrb(
+DLL_LOCAL void kmp_set_library_turnaround_lrb(
     void *ofld_
 )
 {
@@ -464,7 +464,7 @@ void kmp_set_library_turnaround_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_set_library_throughput_lrb(
+DLL_LOCAL void kmp_set_library_throughput_lrb(
     void *ofld_
 )
 {
@@ -475,7 +475,7 @@ void kmp_set_library_throughput_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_set_library_lrb(
+DLL_LOCAL void kmp_set_library_lrb(
     void *ofld
 )
 {
@@ -485,7 +485,7 @@ void kmp_set_library_lrb(
     kmp_set_library(mode);
 }
 
-void kmp_get_library_lrb(
+DLL_LOCAL void kmp_get_library_lrb(
     void *ofld
 )
 {
@@ -495,7 +495,7 @@ void kmp_get_library_lrb(
     omp_send_int_to_host(ofld, mode);
 }
 
-void kmp_set_defaults_lrb(
+DLL_LOCAL void kmp_set_defaults_lrb(
     void *ofld_
 )
 {
@@ -515,7 +515,7 @@ void kmp_set_defaults_lrb(
 
 // affinity API functions
 
-void kmp_create_affinity_mask_lrb(
+DLL_LOCAL void kmp_create_affinity_mask_lrb(
     void *ofld_
 )
 {
@@ -533,7 +533,7 @@ void kmp_create_affinity_mask_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_destroy_affinity_mask_lrb(
+DLL_LOCAL void kmp_destroy_affinity_mask_lrb(
     void *ofld_
 )
 {
@@ -551,7 +551,7 @@ void kmp_destroy_affinity_mask_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_set_affinity_lrb(
+DLL_LOCAL void kmp_set_affinity_lrb(
     void *ofld_
 )
 {
@@ -575,7 +575,7 @@ void kmp_set_affinity_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_get_affinity_lrb(
+DLL_LOCAL void kmp_get_affinity_lrb(
     void *ofld_
 )
 {
@@ -599,7 +599,7 @@ void kmp_get_affinity_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_get_affinity_max_proc_lrb(
+DLL_LOCAL void kmp_get_affinity_max_proc_lrb(
     void *ofld
 )
 {
@@ -609,7 +609,7 @@ void kmp_get_affinity_max_proc_lrb(
     omp_send_int_to_host(ofld, max_proc);
 }
 
-void kmp_set_affinity_mask_proc_lrb(
+DLL_LOCAL void kmp_set_affinity_mask_proc_lrb(
     void *ofld_
 )
 {
@@ -638,7 +638,7 @@ void kmp_set_affinity_mask_proc_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_unset_affinity_mask_proc_lrb(
+DLL_LOCAL void kmp_unset_affinity_mask_proc_lrb(
     void *ofld_
 )
 {
@@ -667,7 +667,7 @@ void kmp_unset_affinity_mask_proc_lrb(
     OFFLOAD_TARGET_LEAVE(ofld);
 }
 
-void kmp_get_affinity_mask_proc_lrb(
+DLL_LOCAL void kmp_get_affinity_mask_proc_lrb(
     void *ofld_
 )
 {

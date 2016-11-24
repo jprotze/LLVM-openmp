@@ -94,6 +94,8 @@ static void BufReleaseRef(void * buf)
     if (info) {
         --info->count;
         if (info->count == 0 && info->is_added) {
+            OFFLOAD_TRACE(1, "Calling COIBufferReleaseRef AddRef count = %d\n",
+                                              ((RefInfo *) ref_data[buf])->count);
             BufferReleaseRef(buf);
             info->is_added = 0;
         }
@@ -184,6 +186,8 @@ void OffloadDescriptor::offload(
         uint64_t var_data_len = ofld.m_vars_total * sizeof(VarDesc);
 
         ofld.m_vars = (VarDesc*) malloc(var_data_len);
+        if (ofld.m_vars == NULL)
+          LIBOFFLOAD_ERROR(c_malloc);
         memcpy(ofld.m_vars, in_data, var_data_len);
 
         in_data += var_data_len;
@@ -338,7 +342,6 @@ void OffloadDescriptor::scatter_copyin_data()
         if (m_vars[i].flags.alloc_disp) {
             int64_t offset = 0;
             m_in.receive_data(&offset, sizeof(offset));
-            m_vars[i].offset = -offset;
         }
         if (VAR_TYPE_IS_DV_DATA_SLICE(type) ||
             VAR_TYPE_IS_DV_DATA(type)) {
@@ -347,7 +350,6 @@ void OffloadDescriptor::scatter_copyin_data()
                   *reinterpret_cast<ArrDesc**>(ptr_addr);
             ptr_addr = reinterpret_cast<void**>(&dvp->Base);
         }
-
         // Set pointer values
         switch (type) {
             case c_data_ptr_array:
@@ -358,6 +360,9 @@ void OffloadDescriptor::scatter_copyin_data()
                         *(reinterpret_cast<char**>(m_vars[i].ptr)) :
                         reinterpret_cast<char*>(m_vars[i].into);
 
+                    if (m_vars[i].flags.is_pointer) {
+                        dst_arr_ptr = *((char**)dst_arr_ptr);
+                    }
                     for (; j < max_el; j++) {
                         if (src_is_for_mic) {
                             m_vars[j].ptr =
@@ -380,8 +385,8 @@ void OffloadDescriptor::scatter_copyin_data()
             case c_data_ptr:
             case c_cean_var_ptr:
             case c_dv_ptr:
-                if (m_vars[i].alloc_if) {
-                    void *buf;
+                if (m_vars[i].alloc_if && !m_vars[i].flags.preallocated) {
+                    void *buf = NULL;
                     if (m_vars[i].flags.sink_addr) {
                         m_in.receive_data(&buf, sizeof(buf));
                     }
@@ -395,9 +400,12 @@ void OffloadDescriptor::scatter_copyin_data()
                                 // increment buffer reference
                                 OFFLOAD_TIMER_START(c_offload_target_add_buffer_refs);
                                 BufferAddRef(buf);
+                                OFFLOAD_TRACE(1, "Calling COIBufferAddRef %p\n", buf);
                                 OFFLOAD_TIMER_STOP(c_offload_target_add_buffer_refs);
                             }
                             add_ref_count(buf, 0 == m_vars[i].flags.sink_addr);
+                            OFFLOAD_TRACE(1, "    AddRef count = %d\n",
+                                              ((RefInfo *) ref_data[buf])->count);
                         }
                         ptr = static_cast<char*>(buf) +
                                   m_vars[i].mic_offset +
@@ -533,7 +541,7 @@ void OffloadDescriptor::scatter_copyin_data()
                 abort();
         }
     }
-printf("__USE OWN LIBOFFLOAD ON MIC__\n");
+//printf("__USE OWN LIBOFFLOAD ON MIC__\n");
     OFFLOAD_TRACE(1, "Total copyin data received from host: [%lld] bytes\n",
                   m_in.get_tfr_size());
 
@@ -575,6 +583,7 @@ void OffloadDescriptor::gather_copyout_data()
             case c_dv_ptr:
                 if (m_vars[i].free_if &&
                     src_is_for_mic &&
+                    !m_vars[i].flags.preallocated &&
                     !m_vars[i].flags.is_static) {
                     void *buf = *static_cast<char**>(m_vars[i].ptr) -
                                     m_vars[i].mic_offset -
@@ -587,6 +596,9 @@ void OffloadDescriptor::gather_copyout_data()
                     OFFLOAD_TIMER_START(c_offload_target_release_buffer_refs);
                     BufReleaseRef(buf);
                     OFFLOAD_TIMER_STOP(c_offload_target_release_buffer_refs);
+                }
+                if (m_vars[i].flags.preallocated && m_vars[i].alloc_if) {
+                    m_out.send_data((void*) m_vars[i].ptr, sizeof(void*));
                 }
                 break;
 

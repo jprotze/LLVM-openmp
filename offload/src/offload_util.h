@@ -11,14 +11,23 @@
 #ifndef OFFLOAD_UTIL_H_INCLUDED
 #define OFFLOAD_UTIL_H_INCLUDED
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 #ifdef TARGET_WINNT
+    #define DLL_LOCAL
+#else
+    #define DLL_LOCAL  __attribute__((visibility("hidden")))
+#endif
+
+#ifdef TARGET_WINNT
+// Don't use <stdint.h> as compiling with VS2010 makes ofldbegin.obj
+// incompatible with STL library of versions older than VS2010.
+typedef unsigned long long int  uint64_t;
+typedef signed long long int    int64_t;
 #include <windows.h>
 #include <process.h>
 #else // TARGET_WINNT
+#include <stdint.h>
 #include <dlfcn.h>
 #include <pthread.h>
 #endif // TARGET_WINNT
@@ -123,7 +132,7 @@ int     DL_addr(const void *addr, Dl_info *info);
 #define DL_addr(addr, info)     dladdr((addr), (info))
 #endif // TARGET_WINNT
 
-extern void* DL_sym(void *handle, const char *name, const char *version);
+DLL_LOCAL extern void* DL_sym(void *handle, const char *name, const char *version);
 
 // One-time initialization API
 #ifdef TARGET_WINNT
@@ -139,13 +148,13 @@ typedef pthread_once_t              OffloadOnceControl;
 #endif // TARGET_WINNT
 
 // Parses size specification string.
-extern bool __offload_parse_size_string(const char *str, uint64_t &new_size);
+DLL_LOCAL extern bool __offload_parse_size_string(const char *str, uint64_t &new_size);
 
 // Parses string with integer value
-extern bool __offload_parse_int_string(const char *str, int64_t &value);
+DLL_LOCAL extern bool __offload_parse_int_string(const char *str, int64_t &value);
 
 // get value by its base, offset and size
-int64_t get_el_value(
+DLL_LOCAL int64_t get_el_value(
     char   *base,
     int64_t offset,
     int64_t size

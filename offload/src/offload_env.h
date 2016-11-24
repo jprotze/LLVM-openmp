@@ -12,6 +12,7 @@
 #define OFFLOAD_ENV_H_INCLUDED
 
 #include <list>
+#include "offload_util.h"
 
 // data structure and routines to parse MIC user environment and pass to MIC
 
@@ -23,7 +24,7 @@ enum MicEnvVarKind
     c_mic_card_env    // for <mic-prefix>_<card-number>_ENV
 };
 
-struct MicEnvVar {
+struct DLL_LOCAL MicEnvVar {
 public:
     MicEnvVar() : prefix(0) {}
     ~MicEnvVar();

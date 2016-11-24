@@ -82,6 +82,8 @@ CeanReadRanges * init_read_ranges_dv(const ArrDesc *dvp)
         }
         res = (CeanReadRanges *)malloc(
             sizeof(CeanReadRanges) + (rank - i) * sizeof(CeanReadDim));
+        if (res == NULL)
+            LIBOFFLOAD_ERROR(c_malloc);
         res -> last_noncont_ind = rank - i - 1;
         count = 1;
         for (; i < rank; i++) {

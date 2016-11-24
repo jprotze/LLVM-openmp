@@ -16,7 +16,7 @@
 #include <stdint.h>
 #include "liboffload_error_codes.h"
 
-extern int timer_enabled;
+DLL_LOCAL extern int timer_enabled;
 
 #ifdef TIMING_SUPPORT
 
@@ -53,8 +53,8 @@ struct OffloadHostTimerData {
 
 #if HOST_LIBRARY
 
-extern int offload_report_level;
-extern int offload_report_enabled;
+DLL_LOCAL extern int offload_report_level;
+DLL_LOCAL extern int offload_report_enabled;
 #define OFFLOAD_REPORT_1 1
 #define OFFLOAD_REPORT_2 2
 #define OFFLOAD_REPORT_3 3
@@ -101,18 +101,18 @@ extern int offload_report_enabled;
         offload_timer_fill_host_mic_num(timer_data, data); \
     }
 
-extern void offload_timer_start(OffloadHostTimerData *,
+extern DLL_LOCAL void offload_timer_start(OffloadHostTimerData *,
                                 OffloadHostPhase t_node);
-extern void offload_timer_stop(OffloadHostTimerData *,
+extern DLL_LOCAL void offload_timer_stop(OffloadHostTimerData *,
                                OffloadHostPhase t_node);
-extern OffloadHostTimerData * offload_timer_init(const char *file, int line);
-extern void offload_timer_fill_target_data(OffloadHostTimerData *,
+extern DLL_LOCAL OffloadHostTimerData * offload_timer_init(const char *file, int line);
+extern DLL_LOCAL void offload_timer_fill_target_data(OffloadHostTimerData *,
                                            void *data);
-extern void offload_timer_fill_host_sdata(OffloadHostTimerData *,
+extern DLL_LOCAL void offload_timer_fill_host_sdata(OffloadHostTimerData *,
                                           uint64_t sent_bytes);
-extern void offload_timer_fill_host_rdata(OffloadHostTimerData *,
+extern DLL_LOCAL void offload_timer_fill_host_rdata(OffloadHostTimerData *,
                                           uint64_t sent_bytes);
-extern void offload_timer_fill_host_mic_num(OffloadHostTimerData *,
+extern DLL_LOCAL void offload_timer_fill_host_mic_num(OffloadHostTimerData *,
                                             int card_number);
 
 // Utility structure for starting/stopping timer
@@ -152,10 +152,10 @@ private:
 #define OFFLOAD_TIMER_TARGET_DATA(data) \
     if (timer_enabled) offload_timer_fill_target_data(data);
 
-extern void offload_timer_start(OffloadTargetPhase t_node);
-extern void offload_timer_stop(OffloadTargetPhase t_node);
-extern void offload_timer_init(void);
-extern void offload_timer_fill_target_data(void *data);
+extern DLL_LOCAL void offload_timer_start(OffloadTargetPhase t_node);
+extern DLL_LOCAL void offload_timer_stop(OffloadTargetPhase t_node);
+extern DLL_LOCAL void offload_timer_init(void);
+extern DLL_LOCAL void offload_timer_fill_target_data(void *data);
 
 #endif // HOST_LIBRARY
 

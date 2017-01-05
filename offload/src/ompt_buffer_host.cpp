@@ -67,6 +67,7 @@ void Tracer::init_functions() {
     // start signal thread
     pthread_create(&m_signal_thread, &m_signal_thread_attr, Tracer::signal_buffer_helper, &m_device_id);
 
+    COICHECK(COIRegisterNotificationCallback(m_proc, Tracer::notification_callback_helper, &m_device_id));
 }
 
 uint64_t Tracer::get_time() {
@@ -292,7 +293,6 @@ void Tracer::start() {
         COICHECK(COIEventRegisterUserEvent(&m_request_event));
         COICHECK(COIEventRegisterUserEvent(&m_full_event))
 
-        COICHECK(COIRegisterNotificationCallback(m_proc, Tracer::notification_callback_helper, &m_device_id));
 
         // create buffer for request and full event
         // and attach to liboffload process
@@ -349,7 +349,7 @@ void Tracer::start() {
         }
 }
 
-void Tracer::stop() {
+void Tracer::stop(bool final) {
     OFFLOAD_DEBUG_TRACE(5, "Stop OMPT Tracer\n");
     if (m_tracing) {
         m_tracing = 0;
@@ -382,7 +382,10 @@ void Tracer::stop() {
 
         COICHECK(COIEventUnregisterUserEvent(m_request_event));
         COICHECK(COIEventUnregisterUserEvent(m_full_event))
-        COICHECK(COIUnregisterNotificationCallback(m_proc, Tracer::notification_callback_helper));
+
+        if(final) {
+            COICHECK(COIUnregisterNotificationCallback(m_proc, Tracer::notification_callback_helper));
+        }
     }
 }
 

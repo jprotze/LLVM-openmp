@@ -154,8 +154,10 @@ struct Tracer {
     /**
      * Stops the tracing of OMPT events on the device and additionally
      * flushes all buffered entries.
+     * @param final Specifies if this is the final stop (requiered for some
+     *              cleanup). Default is false.
      */
-    void stop();
+    void stop(bool final=false);
 
     /**
      * Pauses the tracing of OMPT events on the device. The buffers

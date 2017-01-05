@@ -298,7 +298,7 @@ void Engine::fini_process(bool verbose)
         // explicitly flush all buffered entries on the target before
         // shutdown
         if (m_tracer.tracing()) {
-            m_tracer.flush();
+            m_tracer.stop(true);
         }
 #endif
 

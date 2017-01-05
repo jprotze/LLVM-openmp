@@ -2,10 +2,13 @@
 #define OMPT_BUFFER_HOST_H_INCLUDED
 
 #include <map>
+#include <pthread.h>
+#include <assert.h>
 
-enum {
+enum func_handle {
     c_ompt_func_start_tracing = 0,
     c_ompt_func_stop_tracing,
+    c_ompt_func_pause_tracing,
     c_ompt_func_restart_tracing,
     c_ompt_func_signal_buffer_allocated,
     c_ompt_func_signal_buffer_truncated,
@@ -16,13 +19,16 @@ enum {
 
 static const char *ompt_func_names[] = {
     "ompt_target_start_tracing", "ompt_target_stop_tracing",
-    "ompt_target_restart_tracing", "ompt_signal_buffer_allocated",
-    "ompt_signal_buffer_truncated", "ompt_get_buffer_pos",
-    "ompt_target_get_time"};
+    "ompt_target_pause_tracing", "ompt_target_restart_tracing",
+    "ompt_signal_buffer_allocated",   "ompt_signal_buffer_truncated",
+    "ompt_get_buffer_pos", "ompt_target_get_time"};
 
 typedef struct {
     ompt_thread_data_t thread_data;
     int device_id;
+    COIBUFFER buffer;
+    func_handle handle;
+    bool busy;
 } ompt_buffer_info_t;
 
 typedef struct {
@@ -32,8 +38,8 @@ typedef struct {
 } thread_data_t;
 
 struct Tracer {
-    Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
-               m_funcs_inited(0) {}
+    Tracer();
+    virtual ~Tracer();
 
   private:
     COIFUNCTION ompt_funcs[c_ompt_funcs_total];
@@ -43,8 +49,27 @@ struct Tracer {
     int m_paused;
     int m_funcs_inited;
 
+    pthread_mutex_t m_mutex_pause;
+
+    pthread_mutex_t  m_signal_thread_mutex;
+    pthread_cond_t   m_signal_thread_cond;
+    pthread_t        m_signal_thread;
+    pthread_attr_t   m_signal_thread_attr;
+
+    // This buffer is used to hand over buffer infomation
+    // to the signal thread and thus access has always been
+    // to be locked.
+    ompt_buffer_info_t m_signal_thread_info;
+
     ompt_target_buffer_request_callback_t request_callback;
     ompt_target_buffer_complete_callback_t complete_callback;
+
+    // Map holding the OMPT events. The key is the thread ID,
+    // the value holds the OMPT records, the COIBUFFER handle
+    // and the size.
+    // Note: In general locking the data structure is required.
+    // However, since we lock on the device side, the locking on
+    // the host is quaranteed implicitly.
     std::map<uint64_t, thread_data_t> tdata;
 
     COIEVENT m_request_event;
@@ -56,7 +81,7 @@ struct Tracer {
     /**
      * Simplifies pipeline creation.
      */
-    COIPIPELINE create_pipeline();
+    COIPIPELINE get_pipeline();
 
     /**
      * Calls COI::ProcessGetFunctionHandles
@@ -90,8 +115,7 @@ struct Tracer {
     /**
      * Helper functions
      */
-    static void *signal_buffer_allocated_helper(void *data);
-    static void *signal_buffer_truncated_helper(void *data);
+    static void *signal_buffer_helper(void* data);
     static void notification_callback_helper(COI_NOTIFICATIONS in_type,
                                              COIPROCESS in_Process,
                                              COIEVENT in_Event,
@@ -103,16 +127,12 @@ struct Tracer {
     uint64_t get_time();
 
     /**
-     * Signals the device that host memory for a thread-specific
-     * OMPT event buffer has been registered.
-     */
-    void *signal_buffer_allocated(int tid);
-
-    /**
      * Signals the device that the buffer entries have been
-     * transferred on the host.
+     * transferred to the host (after a complete callback) or
+     * the host memory for a thread-specific OMPT event has
+     * been registered (after a buffer request callback).
      */
-    void *signal_buffer_truncated();
+    void *signal_buffer_op();
 
     /**
     * Callback function invoked for each COI notification

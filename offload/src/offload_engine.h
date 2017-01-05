@@ -591,10 +591,11 @@ private:
     // performs library intialization on the device side
     pid_t init_device(void);
 
-private:
+public:
     // get pipeline associated with a calling thread
     COIPIPELINE get_pipeline(void);
 
+private:
     // get automatic vars set associated with the calling thread
     AutoSet& get_auto_vars(void);
 

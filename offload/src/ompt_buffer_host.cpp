@@ -1,6 +1,7 @@
 #include "coi/coi_client.h"
 #include "compiler_if_host.h"
 #include "offload_engine.h"
+#include "ompt_common.h"
 #include <common/COIEvent_common.h>
 #include "ompt_buffer_host.h"
 #include <iostream>

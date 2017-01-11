@@ -1,17 +1,13 @@
 #include "offload.h"
 #include "compiler_if_target.h"
 #include "ompt_callback_target.h"
+#include "ompt_common.h"
 #include <common/COIEvent_common.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include <ompt.h>
 #include <map>
 #include "ompt_target.h"
-
-
-#define COICHECK(res) if(res != COI_SUCCESS) \
-std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
-          << COIResultGetName(res) << std::endl;
 
 ompt_id_t* ompt_tid_buffer;
 ompt_get_thread_data_t my_ompt_get_thread_data;

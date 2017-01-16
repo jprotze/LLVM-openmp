@@ -62,9 +62,9 @@ inline void ompt_buffer_flush(ompt_id_t tid) {
     }
     buffer_full_conditions[tid] = false;
 
-    pthread_mutex_lock(&mutex_tdata);
-
     tdata_pos[tid] = 0;
+
+    pthread_mutex_lock(&mutex_tdata);
 
     // Delete the collected data for the current tid. This will signal
     // a buffer_request_event as soon as a further event occured.
@@ -78,16 +78,12 @@ inline void ompt_buffer_flush(ompt_id_t tid) {
 inline void ompt_buffer_request(ompt_id_t tid) {
     bool data_exits;
 
-    pthread_mutex_lock(&mutex_tdata);
     data_exits = tdata.count(tid);
-    pthread_mutex_unlock(&mutex_tdata);
 
     if (!data_exits) {
         // request buffer, send signal to host
         pthread_mutex_lock(&mutex_waiting_buffer_requests[tid]);
-        pthread_mutex_lock(&mutex_tdata);
         tdata_pos[tid] = 0;
-        pthread_mutex_unlock(&mutex_tdata);
         COICHECK(COIEventSignalUserEvent(ompt_buffer_request_events[tid]));
         OFFLOAD_OMPT_TRACE(3, 
             "Send signal ompt_buffer_request_event (tid=%d)\n", tid);
@@ -118,12 +114,12 @@ void ompt_buffer_add_target_event(ompt_record_t event) {
         event.thread_data.value = tid + 1;
         event.dev_task_id = 0; //FIXME
 
-        pthread_mutex_lock(&mutex_tdata);
         pos = tdata_pos[tid];
+        pthread_mutex_lock(&mutex_tdata);
         tdata[tid].event_buffer[pos] = event;
+        pthread_mutex_unlock(&mutex_tdata);
         (tdata_pos[tid])++;
         tdata_complete = tdata_pos[tid] >= tdata[tid].buffer_size;
-        pthread_mutex_unlock(&mutex_tdata);
 
         if (tdata_complete) {
             ompt_buffer_flush(tid);

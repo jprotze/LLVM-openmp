@@ -314,6 +314,9 @@ static void print_range(
     OFFLOAD_TRACE(4, "%s            values:\n", spaces);
     int count = 0;
     buffer[0] = '\0';
+
+    // The following code caused seg faults from time to time
+#if 0
     while (low <= high)
     {
         switch (esize)
@@ -343,6 +346,7 @@ static void print_range(
             buffer[0] = '\0';
         }
     }
+#endif
     if (count != 0) {
         OFFLOAD_TRACE(4, "%s            %s\n", spaces, buffer);
     }

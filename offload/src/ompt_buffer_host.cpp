@@ -16,7 +16,6 @@ std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
 
 Tracer::Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
                m_funcs_inited(0), m_signal_threads_busy(true) {
-    pthread_mutex_init(&m_mutex_pause, NULL);
     pthread_mutex_init(&m_mutex_pipeline, NULL);
 
     // Prepare and start the the signal thread
@@ -162,7 +161,6 @@ void* Tracer::signal_requested() {
             OFFLOAD_OMPT_TRACE(4, "Processesing REQUEST event %d\n",
                 m_request_events[tid].opaque[0]);
 
-            pthread_mutex_lock(&m_mutex_pause);
             if(!m_paused) {
             // register event
             COICHECK(COIEventRegisterUserEvent(&m_request_events[tid]));
@@ -178,7 +176,6 @@ void* Tracer::signal_requested() {
                 0, NULL,
                 COI_EVENT_SYNC));
             }
-            pthread_mutex_unlock(&m_mutex_pause);
 
             // The missing lock here might be critical! Since we lock on the device
             // side, it should be ok.
@@ -281,7 +278,6 @@ void* Tracer::signal_truncated() {
             OFFLOAD_OMPT_TRACE(4, "Processesing FULL event %d\n",
                 m_full_events[tid].opaque[0]);
 
-            pthread_mutex_lock(&m_mutex_pause);
             if(!m_paused) {
             // register event
             COICHECK(COIEventRegisterUserEvent(&m_full_events[tid]));
@@ -297,7 +293,6 @@ void* Tracer::signal_truncated() {
                 0, NULL,
                 COI_EVENT_SYNC));
             }
-            pthread_mutex_unlock(&m_mutex_pause);
 
             // Read the current buffer position to determine the amount of
             // data which need to be transferred
@@ -440,9 +435,7 @@ void Tracer::stop(bool final) {
 }
 
 void Tracer::pause() {
-    pthread_mutex_lock(&m_mutex_pause);
     m_paused = 1;
-    pthread_mutex_unlock(&m_mutex_pause);
     COIPIPELINE pipeline = get_pipeline();
     COICHECK(COI::PipelineRunFunction(
             pipeline, ompt_funcs[c_ompt_func_pause_tracing],

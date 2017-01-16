@@ -14,13 +14,6 @@ ompt_get_thread_data_t my_ompt_get_thread_data;
 COIEVENT* ompt_buffer_request_events;
 COIEVENT* ompt_buffer_complete_events;
 
-// TODO: Remove?
-// I really would love to remove this global mutex. However,
-// we have to ensure somehow that not new signal is emited as long
-// as the host did not singal back the allocation/truncation.
-// Since we use EventWait in signal thread, this might be possible now.
-pthread_mutex_t mutex_buffer_transfer;
-
 pthread_mutex_t mutex_tdata; //Remove this lock by using a TLS?
 
 bool tracing = false;
@@ -55,10 +48,8 @@ void __attribute__((constructor)) init(){
 
 inline void ompt_buffer_flush(ompt_id_t tid) {
     // Since we can not send any parameters with
-    // the user signal we need to lock globally.
-    // By doing this we can read the tid (which is stored in
-    // global variable) safely from the host.
-    pthread_mutex_lock(&mutex_buffer_transfer);
+    // the user signal we need to set the thread specific lock
+    // By doing this we can read the tid safely from the host.
     pthread_mutex_lock(&mutex_waiting_buffer_completes[tid]);
     COICHECK(COIEventSignalUserEvent(ompt_buffer_complete_events[tid]));
     OFFLOAD_OMPT_TRACE(5, 
@@ -82,7 +73,6 @@ inline void ompt_buffer_flush(ompt_id_t tid) {
     pthread_mutex_unlock(&mutex_tdata);
 
     pthread_mutex_unlock(&mutex_waiting_buffer_completes[tid]);
-    pthread_mutex_unlock(&mutex_buffer_transfer);
 }
 
 inline void ompt_buffer_request(ompt_id_t tid) {
@@ -94,7 +84,6 @@ inline void ompt_buffer_request(ompt_id_t tid) {
 
     if (!data_exits) {
         // request buffer, send signal to host
-        pthread_mutex_lock(&mutex_buffer_transfer);
         pthread_mutex_lock(&mutex_waiting_buffer_requests[tid]);
         pthread_mutex_lock(&mutex_tdata);
         tdata_pos[tid] = 0;
@@ -111,7 +100,6 @@ inline void ompt_buffer_request(ompt_id_t tid) {
         buffer_request_conditions[tid] = false;
 
         pthread_mutex_unlock(&mutex_waiting_buffer_requests[tid]);
-        pthread_mutex_unlock(&mutex_buffer_transfer);
     }
 }
 
@@ -164,7 +152,6 @@ void ompt_target_start_tracing(
     for(int i=0; i<MAX_OMPT_THREADS; i++){
         pthread_cond_init(&waiting_buffer_requests[i], NULL);
         pthread_cond_init(&waiting_buffer_completes[i], NULL);
-        pthread_mutex_init(&mutex_buffer_transfer, NULL);
         pthread_mutex_init(&mutex_waiting_buffer_requests[i], NULL);
         pthread_mutex_init(&mutex_waiting_buffer_completes[i], NULL);
     }
@@ -173,8 +160,6 @@ void ompt_target_start_tracing(
     ompt_buffer_request_events = (COIEVENT*) buffers[0];
     ompt_buffer_complete_events = (COIEVENT*) buffers[1];
     tdata_pos = (uint64_t*) buffers[2];
-    pthread_mutex_lock(&mutex_buffer_transfer);
-    pthread_mutex_unlock(&mutex_buffer_transfer);
 
     tracing = true;
 }

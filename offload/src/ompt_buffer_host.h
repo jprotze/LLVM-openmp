@@ -131,6 +131,7 @@ struct Tracer {
      *    host and device.
      * 2) If the tracer was paused and tracing ist resumed, then the old buffers
      *    are used. The previous collected entries are preserved.
+     * Note: Calling start() is not thread-safe.
      */
     void start();
 
@@ -139,6 +140,7 @@ struct Tracer {
      * flushes all buffered entries.
      * @param final Specifies if this is the final stop (requiered for some
      *              cleanup). Default is false.
+     * Note: Calling stop() is not thread-safe.
      */
     void stop(bool final=false);
 
@@ -146,6 +148,7 @@ struct Tracer {
      * Pauses the tracing of OMPT events on the device. The buffers
      * on the device are not flushed. They will be filled further
      * as soon as tracing is restarted.
+     * Note: Calling pause() is not thread-safe.
      */
     void pause();
 

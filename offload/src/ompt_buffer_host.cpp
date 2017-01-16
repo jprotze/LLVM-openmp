@@ -357,7 +357,20 @@ void Tracer::read_buffer(COIBUFFER buffer, void *target_host,
 }
 
 void Tracer::start() {
+    static bool first = true;
+
+    // We only (re)start tracing if start is called for the
+    // first time or after a clean stop.
+    if(first){
+        first = false;
+        m_tracing = 1;
+    }
+    if(!m_tracing){
+        return;
+    }
+
     m_tracing = 1;
+
     OFFLOAD_OMPT_TRACE(3, "Start OMPT Tracer\n");
 
     if (!m_paused) {

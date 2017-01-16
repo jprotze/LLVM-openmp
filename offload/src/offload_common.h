@@ -81,9 +81,6 @@ DLL_LOCAL void Offload_Timer_Print(void);
 #define OFFLOAD_TRACE(trace_level, ...)  \
     if (console_enabled >= trace_level) { \
         OFFLOAD_DEBUG_PRINT_PREFIX(); \
-        if (trace_level == 5) {\
-            printf("[OMPT] "); \
-        } \
         printf(__VA_ARGS__); \
         fflush(NULL); \
     }
@@ -458,7 +455,6 @@ struct FunctionDescriptor
     // Whether trace is requested on console.
     // A value of 1 produces only function name and data sent/received.
     // Values > 1 produce copious trace information.
-    // Values >= 5 include OMPT trace information.
     uint8_t console_enabled;
 
     // Flag controlling timing on the target side.

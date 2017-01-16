@@ -1,6 +1,8 @@
 #ifndef OMPT_BUFFER_HOST_H_INCLUDED
 #define OMPT_BUFFER_HOST_H_INCLUDED
 
+#include "ompt_common.h"
+
 #include <map>
 #include <pthread.h>
 #include <assert.h>
@@ -12,24 +14,16 @@ enum func_handle {
     c_ompt_func_restart_tracing,
     c_ompt_func_signal_buffer_allocated,
     c_ompt_func_signal_buffer_truncated,
-    c_ompt_func_get_buffer_pos,
     c_ompt_func_target_get_time,
-    c_ompt_funcs_total
+    c_ompt_funcs_total,
+    c_ompt_funcs_invalid
 };
 
 static const char *ompt_func_names[] = {
     "ompt_target_start_tracing", "ompt_target_stop_tracing",
     "ompt_target_pause_tracing", "ompt_target_restart_tracing",
     "ompt_signal_buffer_allocated",   "ompt_signal_buffer_truncated",
-    "ompt_get_buffer_pos", "ompt_target_get_time"};
-
-typedef struct {
-    ompt_thread_data_t thread_data;
-    int device_id;
-    COIBUFFER buffer;
-    func_handle handle;
-    bool busy;
-} ompt_buffer_info_t;
+    "ompt_target_get_time"};
 
 typedef struct {
     COIBUFFER buffer;
@@ -50,16 +44,15 @@ struct Tracer {
     int m_funcs_inited;
 
     pthread_mutex_t m_mutex_pause;
+    pthread_mutex_t m_mutex_pipeline;
 
     pthread_mutex_t  m_signal_thread_mutex;
     pthread_cond_t   m_signal_thread_cond;
-    pthread_t        m_signal_thread;
+    pthread_t        m_signal_requested_thread;
+    pthread_t        m_signal_truncated_thread;
     pthread_attr_t   m_signal_thread_attr;
 
-    // This buffer is used to hand over buffer infomation
-    // to the signal thread and thus access has always been
-    // to be locked.
-    ompt_buffer_info_t m_signal_thread_info;
+    bool m_signal_threads_busy;
 
     ompt_target_buffer_request_callback_t request_callback;
     ompt_target_buffer_complete_callback_t complete_callback;
@@ -72,11 +65,12 @@ struct Tracer {
     // the host is quaranteed implicitly.
     std::map<uint64_t, thread_data_t> tdata;
 
-    COIEVENT m_request_event;
-    COIEVENT m_full_event;
-    COIBUFFER m_tid_buffer;
-    COIBUFFER request_event_buffer;
-    COIBUFFER full_event_buffer;
+    uint64_t m_buffer_pos[MAX_OMPT_THREADS];
+    COIEVENT m_request_events[MAX_OMPT_THREADS];
+    COIEVENT m_full_events[MAX_OMPT_THREADS];
+    COIBUFFER m_pos_buffer;
+    COIBUFFER m_request_event_buffer;
+    COIBUFFER m_full_event_buffer;
 
     /**
      * Simplifies pipeline creation.
@@ -91,13 +85,8 @@ struct Tracer {
     /**
      * Pull OMPT buffer entries from device.
      */
-    void read_buffer(COIBUFFER buffer, void *target_host, size_t bytes);
+    void read_buffer(COIBUFFER buffer, void *target_host, uint64_t bytes, uint64_t offset = 0);
 
-    /**
-     * Register COI event and transfer it to the device such that the
-     * device can signal it.
-     */
-    void register_event(COIBUFFER buffer, COIEVENT *event);
 
   public:
     inline void set_coi_process(COIPROCESS proc) { m_proc = proc; }
@@ -115,11 +104,8 @@ struct Tracer {
     /**
      * Helper functions
      */
-    static void *signal_buffer_helper(void* data);
-    static void notification_callback_helper(COI_NOTIFICATIONS in_type,
-                                             COIPROCESS in_Process,
-                                             COIEVENT in_Event,
-                                             const void *in_UserData);
+    static void *signal_requested_helper(void* data);
+    static void *signal_truncated_helper(void* data);
 
     /**
      * Get target time
@@ -132,13 +118,8 @@ struct Tracer {
      * the host memory for a thread-specific OMPT event has
      * been registered (after a buffer request callback).
      */
-    void *signal_buffer_op();
-
-    /**
-    * Callback function invoked for each COI notification
-    */
-    void notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Process,
-                               COIEVENT in_Event, const void *in_UserData);
+    void *signal_requested();
+    void *signal_truncated();
 
     /**
      * Starts the actual tracing of OMPT events on the device.
@@ -166,9 +147,5 @@ struct Tracer {
      */
     void pause();
 
-    /**
-     * Pulls explicitly all buffered OMPT events from the device.
-     */
-    void flush();
 };
 #endif

@@ -15,10 +15,9 @@ std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
 
 
 Tracer::Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
-               m_funcs_inited(0) {
+               m_funcs_inited(0), m_signal_threads_busy(true) {
     pthread_mutex_init(&m_mutex_pause, NULL);
-
-    m_signal_thread_info.busy = true;
+    pthread_mutex_init(&m_mutex_pipeline, NULL);
 
     // Prepare and start the the signal thread
     pthread_mutex_init(&m_signal_thread_mutex, NULL);
@@ -28,9 +27,9 @@ Tracer::Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
 }
 
 Tracer:: ~Tracer(){
-    // Stop the signal thread
+    // Stop the signal threads
     pthread_mutex_lock(&m_signal_thread_mutex);
-    m_signal_thread_info.busy=false;
+    m_signal_threads_busy = false;
     pthread_mutex_unlock(&m_signal_thread_mutex);
 
     // clean up singal thread
@@ -40,9 +39,13 @@ Tracer:: ~Tracer(){
 }
 
 COIPIPELINE Tracer::get_pipeline() {
+    COIPIPELINE pipeline;
+    pthread_mutex_lock(&m_mutex_pipeline);
     Engine& engine = mic_engines[m_device_id % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
-    return engine.get_pipeline();
+    pipeline = engine.get_pipeline();
+    pthread_mutex_unlock(&m_mutex_pipeline);
+    return pipeline;
 }
 
 void Tracer::init_functions() {
@@ -65,10 +68,12 @@ void Tracer::init_functions() {
 
     assert(m_device_id != -1);
 
-    // start signal thread
-    pthread_create(&m_signal_thread, &m_signal_thread_attr, Tracer::signal_buffer_helper, &m_device_id);
+    // start signal threads
+    pthread_create(&m_signal_requested_thread, &m_signal_thread_attr,
+        Tracer::signal_requested_helper, &m_device_id);
+    pthread_create(&m_signal_truncated_thread, &m_signal_thread_attr,
+        Tracer::signal_truncated_helper, &m_device_id);
 
-    COICHECK(COIRegisterNotificationCallback(m_proc, Tracer::notification_callback_helper, &m_device_id));
 }
 
 uint64_t Tracer::get_time() {
@@ -91,78 +96,243 @@ uint64_t Tracer::get_time() {
     return ret;
 }
 
-void* Tracer::signal_buffer_helper(void* data) {
+void* Tracer::signal_requested_helper(void* data) {
     Engine& engine = mic_engines[*(uint64_t*)data % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
 
-    OFFLOAD_DEBUG_TRACE(5, "Signal thread started for device %ld\n", 
+    OFFLOAD_OMPT_TRACE(3, "Signal requested thread started for device %ld\n",
         *(uint64_t*)data% mic_engines_total);
 
-    tracer.signal_buffer_op();
+    tracer.signal_requested();
 
     pthread_exit(NULL);
 }
 
 /**
- * Signals that the buffer has been truncated to the device.
+ * Signals the device that the buffer has been allocated.
  */
-void* Tracer::signal_buffer_op() {
+void* Tracer::signal_requested() {
+    uint32_t num_signaled;
+    uint32_t signaled_indices[MAX_OMPT_THREADS];
     COIPIPELINE pipeline;
+    COIRESULT result;
 
-    // Since this is the signal worker thread, it get his own pipeline.
+    // Since this is a signal worker thread, it get his own pipeline.
     // I think this is not required at all. However, it does not really
     // hurt here.
+    pthread_mutex_lock(&m_mutex_pipeline);
     COICHECK(COI::PipelineCreate(
         m_proc,
         NULL,
         0,
         &pipeline
     ));
- 
-    pthread_mutex_lock(&m_signal_thread_mutex);
-    while(m_signal_thread_info.busy) {
+    pthread_mutex_unlock(&m_mutex_pipeline);
 
-        pthread_cond_wait(&m_signal_thread_cond, &m_signal_thread_mutex);
+    OFFLOAD_OMPT_TRACE(3, "Request pipeline: %lx\n", pipeline);
 
-        if(m_signal_thread_info.handle == c_ompt_func_signal_buffer_truncated) {
-            OFFLOAD_DEBUG_TRACE(5, "Send signal buffer_truncated\n");
-            COICHECK(COI::PipelineRunFunction(
-                pipeline, ompt_funcs[c_ompt_func_signal_buffer_truncated],
-                0, NULL, NULL,
+    //pthread_mutex_lock(&m_signal_thread_mutex);
+    while(m_signal_threads_busy) {
+
+        result = COIEventWait(
+            MAX_OMPT_THREADS,              // Number of events to wait for
+            m_request_events,              // Event handles
+            -1,                            // Wait indefinitely
+            false,                         // Wait for all events
+            &num_signaled, signaled_indices // Number of events signaled
+                                           // and their indices
+        );
+
+        // event cancelation means that the runtime shuts down,
+        // thus we destroy the signal thread right now.
+        if(result == COI_EVENT_CANCELED) {
+            pthread_exit(NULL);
+        } else if(result == COI_SUCCESS) {
+            OFFLOAD_OMPT_TRACE(4,
+                "Successfully waited for %d request events (signaled sink side)\n",
+                 num_signaled);
+        } else {
+            COICHECK(result);
+        }
+
+        // re-register all received events (they are one-shot events)
+        for(int i=0; i< num_signaled; i++){
+            int tid = signaled_indices[i];
+
+            OFFLOAD_OMPT_TRACE(4, "Processesing REQUEST event %d\n",
+                m_request_events[tid].opaque[0]);
+
+            pthread_mutex_lock(&m_mutex_pause);
+            if(!m_paused) {
+            // register event
+            COICHECK(COIEventRegisterUserEvent(&m_request_events[tid]));
+            // transfer registered event to device
+            COICHECK(COI::BufferWrite(
+                m_request_event_buffer,
+                tid*sizeof(COIEVENT),  // the offset (we only want to register 
+                                       // event for one thread) 
+                                       // TODO: Is this safe when call "start" again?
+                &m_request_events[tid],
+                sizeof(COIEVENT),
+                COI_COPY_USE_DMA,
                 0, NULL,
-                NULL, 0, 
-                NULL, 0,
-                NULL));
-            COICHECK(COI::BufferDestroy(m_signal_thread_info.buffer));
+                COI_EVENT_SYNC));
+            }
+            pthread_mutex_unlock(&m_mutex_pause);
 
-        } else if(m_signal_thread_info.handle == c_ompt_func_signal_buffer_allocated){
-            int tid = m_signal_thread_info.thread_data.value;
-            OFFLOAD_DEBUG_TRACE(5, "Send signal buffer_allocated\n");
+            // The missing lock here might be critical! Since we lock on the device
+            // side, it should be ok.
+            request_callback(&tdata[tid].host_ptr, &tdata[tid].host_size);
+
+            // create buffer and attach to liboffload process
+            COICHECK(COI::BufferCreateFromMemory(
+                    tdata[tid].host_size,
+                    COI_BUFFER_NORMAL,
+                    0,
+                    tdata[tid].host_ptr,
+                    1, &m_proc,
+                    &tdata[tid].buffer));
+
+            OFFLOAD_OMPT_TRACE(3, "Created tracing buffer from %p: [%ld] bytes\n",
+                                tdata[tid].host_ptr, tdata[tid].host_size);
+
+
+            // We need to pass the tid and the amount of allocated data to
+            // the device.
+            uint64_t misc_data[] = {tid, tdata[tid].host_size};
+            OFFLOAD_OMPT_TRACE(3, "Send signal buffer_allocated\n");
             COI_ACCESS_FLAGS flags = COI_SINK_WRITE;
             COICHECK(COI::PipelineRunFunction(
                 pipeline, ompt_funcs[c_ompt_func_signal_buffer_allocated],
                 1, &tdata[tid].buffer, &flags,
                 0, NULL,
-                &tdata[tid].host_size, sizeof(uint64_t),
+                &misc_data, 2 * sizeof(uint64_t),
                 NULL, 0,
                 NULL));
+        }
+    }
+}
 
+void* Tracer::signal_truncated_helper(void* data) {
+    Engine& engine = mic_engines[*(uint64_t*)data % mic_engines_total];
+    Tracer& tracer = engine.get_tracer();
+
+    OFFLOAD_OMPT_TRACE(3, "Signal truncated thread started for device %ld\n",
+        *(uint64_t*)data% mic_engines_total);
+
+    tracer.signal_truncated();
+
+    pthread_exit(NULL);
+}
+
+/**
+ * Signals the device that the buffer has been truncated.
+ */
+void* Tracer::signal_truncated() {
+    uint32_t num_signaled;
+    uint32_t signaled_indices[MAX_OMPT_THREADS];
+    COIPIPELINE pipeline;
+    COIRESULT result;
+
+    // Since this is a signal worker thread, it get his own pipeline.
+    // I think this is not required at all. However, it does not really
+    // hurt here.
+    pthread_mutex_lock(&m_mutex_pipeline);
+    COICHECK(COI::PipelineCreate(
+        m_proc,
+        NULL,
+        0,
+        &pipeline
+    ));
+    pthread_mutex_unlock(&m_mutex_pipeline);
+ 
+    OFFLOAD_OMPT_TRACE(3, "Truncate pipeline: %lx\n", pipeline);
+
+    //pthread_mutex_lock(&m_signal_thread_mutex);
+    while(m_signal_threads_busy) {
+
+        result = COIEventWait(
+            MAX_OMPT_THREADS,              // Number of events to wait for
+            m_full_events,                 // Event handles
+            -1,                            // Wait indefinitely
+            false,                         // Wait for all events
+            &num_signaled, signaled_indices // Number of events signaled
+                                           // and their indices
+        );
+
+        // event cancelation means that the runtime shuts down,
+        // thus we destroy the signal thread.
+        if(result == COI_EVENT_CANCELED) {
+            pthread_exit(NULL);
+        } else if(result == COI_SUCCESS) {
+            OFFLOAD_OMPT_TRACE(4, 
+                "Successfully waited for %d request events (signaled sink side)\n",
+                 num_signaled);
         } else {
-            std::cerr << "ERROR: Unexpected signal handle. Exit.\n";
-            exit(1);
+            COICHECK(result);
         }
 
+        // re-register all received events (they are one-shot events)
+        for(int i=0; i< num_signaled; i++){
+            int tid = signaled_indices[i];
+            uint64_t pos;
+            uint64_t size;
+
+            OFFLOAD_OMPT_TRACE(4, "Processesing FULL event %d\n",
+                m_full_events[tid].opaque[0]);
+
+            pthread_mutex_lock(&m_mutex_pause);
+            if(!m_paused) {
+            // register event
+            COICHECK(COIEventRegisterUserEvent(&m_full_events[tid]));
+            // transfer registered event to device
+            COICHECK(COI::BufferWrite(
+                m_full_event_buffer,
+                tid*sizeof(COIEVENT), // the offset (we only want to register
+                                      // event for one thread)
+                                      // TODO: Is this safe when call "start" again?
+                &m_full_events[tid],
+                sizeof(COIEVENT),
+                COI_COPY_USE_DMA,
+                0, NULL,
+                COI_EVENT_SYNC));
+            }
+            pthread_mutex_unlock(&m_mutex_pause);
+
+            // Read the current buffer position to determine the amount of
+            // data which need to be transferred
+            read_buffer(m_pos_buffer, &m_buffer_pos[tid], sizeof(uint64_t), tid*sizeof(uint64_t));
+            size = m_buffer_pos[tid]*sizeof(ompt_record_t);
+
+            // Transfer the collected data to the host
+            read_buffer(tdata[tid].buffer, tdata[tid].host_ptr, size);
+
+            complete_callback(tdata[tid].host_ptr, m_device_id, size);
+
+            OFFLOAD_OMPT_TRACE(3, 
+                "Received %d events and send signal buffer_truncated (tid=%d)\n",
+                m_buffer_pos[tid], tid);
+
+            COICHECK(COI::PipelineRunFunction(
+                pipeline, ompt_funcs[c_ompt_func_signal_buffer_truncated],
+                0, NULL, NULL,
+                0, NULL,
+                &tid, sizeof(uint64_t),
+                NULL, 0,
+                NULL));
+            COICHECK(COI::BufferDestroy(tdata[tid].buffer));
+
+        }
     }
-    pthread_mutex_unlock(&m_signal_thread_mutex);
-    COIPipelineDestroy(pipeline);
 }
 
 
-void Tracer::read_buffer(COIBUFFER buffer, void *target_host, size_t bytes) {
+void Tracer::read_buffer(COIBUFFER buffer, void *target_host,
+    uint64_t bytes, uint64_t offset) {
     // receive data from sink
     COICHECK(COI::BufferRead(
         buffer,
-        0,
+        offset,
         target_host,
         bytes,
         COI_COPY_USE_DMA,
@@ -170,163 +340,48 @@ void Tracer::read_buffer(COIBUFFER buffer, void *target_host, size_t bytes) {
         COI_EVENT_SYNC));
 }
 
-void Tracer::register_event(COIBUFFER buffer, COIEVENT* event) {
-
-    pthread_mutex_lock(&m_mutex_pause);
-    if(!m_paused) {
-    // register event
-    COICHECK(COIEventRegisterUserEvent(event));
-    // transfer registered event to device
-    COICHECK(COI::BufferWrite(
-        buffer,
-        0,
-        event,
-        sizeof(COIEVENT),
-        COI_COPY_USE_DMA,
-        0, NULL,
-        COI_EVENT_SYNC));
-    }
-    pthread_mutex_unlock(&m_mutex_pause);
-}
-
-
-void Tracer::notification_callback_helper(COI_NOTIFICATIONS in_type, COIPROCESS in_Process, COIEVENT in_Event, const void* in_UserData) {
-    // Is this a user event?
-    if (in_type == USER_EVENT_SIGNALED) {
-        // the user data only contains the device id
-        int device_id = *((int*)in_UserData);
-
-        // we need to get the tracer belonging to the device and call it's
-        // object-specific callback
-        Engine& engine = mic_engines[device_id % mic_engines_total];
-        Tracer& tracer = engine.get_tracer();
-        tracer.notification_callback(in_type, in_Process, in_Event, in_UserData);
-    }
-}
-
-void Tracer::notification_callback(COI_NOTIFICATIONS in_type, COIPROCESS in_Process, COIEVENT in_Event, const void* in_UserData) {
-    // the user data only contains the device id
-    int device_id = *((int*)in_UserData);
-
-    // buffer full event
-    if (!memcmp(&in_Event, &m_full_event, sizeof(COIEVENT))) {
-        // read tid
-        ompt_id_t tid;
-        read_buffer(m_tid_buffer, &tid, sizeof(ompt_id_t));
-
-
-        read_buffer(tdata[tid].buffer,
-                tdata[tid].host_ptr,
-                tdata[tid].host_size);
-        register_event(full_event_buffer,
-                &m_full_event);
-
-        OFFLOAD_DEBUG_TRACE(5, "Read tracing buffer from device and filled to %p: [%ld] bytes\n",
-                            tdata[tid].host_ptr, tdata[tid].host_size);
-
-        complete_callback(tdata[tid].host_ptr, device_id, tdata[tid].host_size);
-
-        // We have to call a COIPipelineRunFunction here, but this would invoke
-        // this callback again causing a deadlock. We can avoid
-        // this by calling the COIPipelineRunFunction asynchronously in an own thread.
-        // The built-in COI mechanism for an asynchronous call does not work here!
-        pthread_mutex_lock(&m_signal_thread_mutex);
-        m_signal_thread_info.device_id = device_id;
-        m_signal_thread_info.thread_data.value = tid;
-        m_signal_thread_info.buffer = tdata[tid].buffer;
-        m_signal_thread_info.handle = c_ompt_func_signal_buffer_truncated;
-
-        // Wake up the signal thread
-        pthread_cond_signal(&m_signal_thread_cond);
-        pthread_mutex_unlock(&m_signal_thread_mutex);
-    }
-
-    // buffer request event
-    else if (!memcmp(&in_Event, &m_request_event, sizeof(COIEVENT))) {
-        // read tid
-        ompt_id_t tid;
-        read_buffer(m_tid_buffer, &tid, sizeof(ompt_id_t));
-
-
-        // The missing lock here might be critical! Since we lock on the device
-        // side, it should be ok.
-        request_callback(&tdata[tid].host_ptr, &tdata[tid].host_size);
-
-        // create buffer and attach to liboffload process
-        COICHECK(COI::BufferCreateFromMemory(
-                tdata[tid].host_size,
-                COI_BUFFER_NORMAL,
-                0,
-                tdata[tid].host_ptr,
-                1, &m_proc,
-                &tdata[tid].buffer));
-
-        OFFLOAD_DEBUG_TRACE(5, "Created tracing buffer from %p: [%ld] bytes\n", 
-                            tdata[tid].host_ptr, tdata[tid].host_size);
-
-        // re-register event (it is an one-shot event)
-        register_event(request_event_buffer,
-                &(m_request_event));
-
-        // We have to call a COIPipelineRunFunction here, but this would invoke
-        // this callback again causing a deadlock. We can avoid
-        // this by calling the COIPipelineRunFunction asynchronously in an own thread.
-        // The built-in COI mechanism for an asynchronous call does not work here!
-        pthread_mutex_lock(&m_signal_thread_mutex);
-        m_signal_thread_info.device_id = device_id;
-        m_signal_thread_info.thread_data.value = tid;
-        m_signal_thread_info.buffer = tdata[tid].buffer;
-        m_signal_thread_info.handle = c_ompt_func_signal_buffer_allocated;
-
-        // Wake up the signal thread
-        pthread_cond_signal(&m_signal_thread_cond);
-        pthread_mutex_unlock(&m_signal_thread_mutex);
-    }
-
-    else std::cerr << "UNKOWN USER SIG\n";
-}
-
 void Tracer::start() {
     m_tracing = 1;
-    OFFLOAD_DEBUG_TRACE(5, "Start OMPT Tracer\n");
+    OFFLOAD_OMPT_TRACE(3, "Start OMPT Tracer\n");
 
     if (!m_paused) {
-        COICHECK(COIEventRegisterUserEvent(&m_request_event));
-        COICHECK(COIEventRegisterUserEvent(&m_full_event))
-
+        for(int i=0; i<MAX_OMPT_THREADS; i++){
+            COICHECK(COIEventRegisterUserEvent(&m_request_events[i]));
+            COICHECK(COIEventRegisterUserEvent(&m_full_events[i]));
+        }
 
         // create buffer for request and full event
         // and attach to liboffload process
         COICHECK(COI::BufferCreateFromMemory(
-                sizeof(COIEVENT),
+                sizeof(COIEVENT) * MAX_OMPT_THREADS,
                 COI_BUFFER_NORMAL,
                 0,
-                &m_request_event,
+                m_request_events,
                 1, &m_proc,
-                &request_event_buffer));
+                &m_request_event_buffer));
     
         COICHECK(COI::BufferCreateFromMemory(
-                sizeof(COIEVENT),
+                sizeof(COIEVENT) * MAX_OMPT_THREADS,
                 COI_BUFFER_NORMAL,
                 0,
-                &m_full_event,
+                m_full_events,
                 1, &m_proc,
-                &full_event_buffer));
+                &m_full_event_buffer));
 
-        COICHECK(COI::BufferCreate(
-                sizeof(ompt_id_t),
+        COICHECK(COI::BufferCreateFromMemory(
+                sizeof(uint64_t) * MAX_OMPT_THREADS,
                 COI_BUFFER_NORMAL,
                 0,
-                NULL,
+                m_buffer_pos,
                 1, &m_proc,
-                &m_tid_buffer));
+                &m_pos_buffer));
 
         init_functions();
 
         COIPIPELINE pipeline = get_pipeline();
 
         // transfer the event buffers to device
-        COIBUFFER event_buffers[] = { request_event_buffer, full_event_buffer, m_tid_buffer };
+        COIBUFFER event_buffers[] = { m_request_event_buffer, m_full_event_buffer, m_pos_buffer };
         COI_ACCESS_FLAGS event_buffers_flags[] = { COI_SINK_WRITE, COI_SINK_WRITE, COI_SINK_WRITE };
         COICHECK(COI::PipelineRunFunction(
                 pipeline, ompt_funcs[c_ompt_func_start_tracing],
@@ -351,17 +406,9 @@ void Tracer::start() {
 }
 
 void Tracer::stop(bool final) {
-    OFFLOAD_DEBUG_TRACE(5, "Stop OMPT Tracer\n");
+    OFFLOAD_OMPT_TRACE(3, "Stop OMPT Tracer\n");
     if (m_tracing) {
         m_tracing = 0;
-
-        // We first interrupt the tracing on the device.
-        pause();
-
-        // Once the tracing was interrupted, we can flush the buffers.
-        flush();
-
-        m_paused = 0;
 
         COIPIPELINE pipeline = get_pipeline();
         COIRESULT result = COI::PipelineRunFunction(
@@ -377,15 +424,17 @@ void Tracer::stop(bool final) {
         }
 
         // Clean up
-        COICHECK(COI::BufferDestroy(request_event_buffer));
-        COICHECK(COI::BufferDestroy(full_event_buffer));
-        COICHECK(COI::BufferDestroy(m_tid_buffer));
+        COICHECK(COI::BufferDestroy(m_request_event_buffer));
+        COICHECK(COI::BufferDestroy(m_full_event_buffer));
 
-        COICHECK(COIEventUnregisterUserEvent(m_request_event));
-        COICHECK(COIEventUnregisterUserEvent(m_full_event))
+        //TODO: this should be a postprocessing step instead of doing for each stop
+        for(int i=0; i<MAX_OMPT_THREADS; i++){
+            COICHECK(COIEventUnregisterUserEvent(m_request_events[i]));
+            COICHECK(COIEventUnregisterUserEvent(m_full_events[i]))
+        }
 
         if(final) {
-            COICHECK(COIUnregisterNotificationCallback(m_proc, Tracer::notification_callback_helper));
+            //TODO: clean up?
         }
     }
 }
@@ -402,37 +451,5 @@ void Tracer::pause() {
             NULL, 0,
             NULL, 0,
             NULL));
-
 }
 
-void Tracer::flush() {
-    COIPIPELINE pipeline = get_pipeline();
-
-    OFFLOAD_DEBUG_TRACE(5, "Flush OMPT buffer\n");
-
-    for (std::map<uint64_t, thread_data_t>::iterator it = tdata.begin();
-            it != tdata.end(); ++it) {
-        uint64_t pos;
-        COICHECK(COI::PipelineRunFunction(
-            pipeline, ompt_funcs[c_ompt_func_get_buffer_pos],
-            0, NULL, NULL,
-            0, NULL,
-            &it->first, sizeof(uint64_t),
-            &pos, sizeof(uint64_t),
-            NULL));
-
-        if (pos != 0) {
-            read_buffer(it->second.buffer,
-                        tdata[it->first].host_ptr,
-                        pos * sizeof(ompt_record_t));
-
-            complete_callback(
-                        tdata[it->first].host_ptr,
-                        m_device_id,
-                        pos * sizeof(ompt_record_t));
-
-            COICHECK(COI::BufferDestroy(tdata[it->first].buffer));
-            OFFLOAD_DEBUG_TRACE(5,"Tracing buffer of thread %d destroyed.\n", it->first);
-        }
-    }
-}

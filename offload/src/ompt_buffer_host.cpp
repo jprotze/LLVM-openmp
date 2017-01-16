@@ -17,7 +17,6 @@ std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
 Tracer::Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
                m_signal_req_thread_busy(true), m_signal_tru_thread_busy(true),
                m_funcs_inited(0){
-    pthread_mutex_init(&m_mutex_pipeline, NULL);
 
     // Prepare and start the the signal thread
     pthread_mutex_init(&m_signal_req_thread_mutex, NULL);
@@ -48,11 +47,9 @@ Tracer:: ~Tracer(){
 
 COIPIPELINE Tracer::get_pipeline() {
     COIPIPELINE pipeline;
-    pthread_mutex_lock(&m_mutex_pipeline);
     Engine& engine = mic_engines[m_device_id % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
     pipeline = engine.get_pipeline();
-    pthread_mutex_unlock(&m_mutex_pipeline);
     return pipeline;
 }
 
@@ -128,14 +125,12 @@ void* Tracer::signal_requested() {
     // Since this is a signal worker thread, it get his own pipeline.
     // I think this is not required at all. However, it does not really
     // hurt here.
-    pthread_mutex_lock(&m_mutex_pipeline);
     COICHECK(COI::PipelineCreate(
         m_proc,
         NULL,
         0,
         &pipeline
     ));
-    pthread_mutex_unlock(&m_mutex_pipeline);
 
     OFFLOAD_OMPT_TRACE(3, "Request pipeline: %lx\n", pipeline);
 
@@ -249,14 +244,12 @@ void* Tracer::signal_truncated() {
     // Since this is a signal worker thread, it get his own pipeline.
     // I think this is not required at all. However, it does not really
     // hurt here.
-    pthread_mutex_lock(&m_mutex_pipeline);
     COICHECK(COI::PipelineCreate(
         m_proc,
         NULL,
         0,
         &pipeline
     ));
-    pthread_mutex_unlock(&m_mutex_pipeline);
 
     OFFLOAD_OMPT_TRACE(3, "Truncate pipeline: %lx\n", pipeline);
 

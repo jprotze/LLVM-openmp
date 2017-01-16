@@ -43,8 +43,6 @@ struct Tracer {
     int m_paused;
     int m_funcs_inited;
 
-    pthread_mutex_t m_mutex_pipeline;
-
     pthread_t        m_signal_requested_thread;
     pthread_t        m_signal_truncated_thread;
     pthread_mutex_t  m_signal_req_thread_mutex;

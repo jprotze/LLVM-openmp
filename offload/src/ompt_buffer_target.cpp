@@ -218,7 +218,7 @@ uint16_t  return_data_len
 )
 {
     OFFLOAD_OMPT_TRACE(3, "Pause tracing. Remaining buffers: (%d)\n",
-        data.size());
+        tdata.size());
     tracing = false;
 }
 

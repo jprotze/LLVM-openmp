@@ -45,13 +45,16 @@ struct Tracer {
 
     pthread_mutex_t m_mutex_pipeline;
 
-    pthread_mutex_t  m_signal_thread_mutex;
-    pthread_cond_t   m_signal_thread_cond;
     pthread_t        m_signal_requested_thread;
     pthread_t        m_signal_truncated_thread;
+    pthread_mutex_t  m_signal_req_thread_mutex;
+    pthread_mutex_t  m_signal_tru_thread_mutex;
+    pthread_cond_t   m_signal_req_thread_cond;
+    pthread_cond_t   m_signal_tru_thread_cond;
     pthread_attr_t   m_signal_thread_attr;
 
-    bool m_signal_threads_busy;
+    bool m_signal_req_thread_busy;
+    bool m_signal_tru_thread_busy;
 
     ompt_target_buffer_request_callback_t request_callback;
     ompt_target_buffer_complete_callback_t complete_callback;

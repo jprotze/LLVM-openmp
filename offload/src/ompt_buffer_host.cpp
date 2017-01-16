@@ -15,26 +15,35 @@ std::cerr << "COI ERROR: "  << __FILE__ << ": " <<  __LINE__ << ": " \
 
 
 Tracer::Tracer() : m_proc(NULL), m_device_id(-1), m_tracing(0), m_paused(0),
-               m_funcs_inited(0), m_signal_threads_busy(true) {
+               m_signal_req_thread_busy(true), m_signal_tru_thread_busy(true),
+               m_funcs_inited(0){
     pthread_mutex_init(&m_mutex_pipeline, NULL);
 
     // Prepare and start the the signal thread
-    pthread_mutex_init(&m_signal_thread_mutex, NULL);
-    pthread_cond_init(&m_signal_thread_cond, NULL);
+    pthread_mutex_init(&m_signal_req_thread_mutex, NULL);
+    pthread_mutex_init(&m_signal_tru_thread_mutex, NULL);
+    pthread_cond_init(&m_signal_req_thread_cond, NULL);
+    pthread_cond_init(&m_signal_tru_thread_cond, NULL);
     pthread_attr_init(&m_signal_thread_attr);
     pthread_attr_setstacksize(&m_signal_thread_attr, 24*1024);
 }
 
 Tracer:: ~Tracer(){
     // Stop the signal threads
-    pthread_mutex_lock(&m_signal_thread_mutex);
-    m_signal_threads_busy = false;
-    pthread_mutex_unlock(&m_signal_thread_mutex);
+    pthread_mutex_lock(&m_signal_req_thread_mutex);
+    m_signal_req_thread_busy = false;
+    pthread_mutex_unlock(&m_signal_req_thread_mutex);
+
+    pthread_mutex_lock(&m_signal_tru_thread_mutex);
+    m_signal_tru_thread_busy = false;
+    pthread_mutex_unlock(&m_signal_tru_thread_mutex);
 
     // clean up singal thread
-    pthread_mutex_destroy(&m_signal_thread_mutex);
+    pthread_mutex_destroy(&m_signal_req_thread_mutex);
+    pthread_mutex_destroy(&m_signal_tru_thread_mutex);
+    pthread_cond_destroy(&m_signal_req_thread_cond);
+    pthread_cond_destroy(&m_signal_tru_thread_cond);
     pthread_attr_destroy(&m_signal_thread_attr);
-    pthread_cond_destroy(&m_signal_thread_cond);
 }
 
 COIPIPELINE Tracer::get_pipeline() {
@@ -99,7 +108,7 @@ void* Tracer::signal_requested_helper(void* data) {
     Engine& engine = mic_engines[*(uint64_t*)data % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
 
-    OFFLOAD_OMPT_TRACE(3, "Signal requested thread started for device %ld\n",
+    OFFLOAD_OMPT_TRACE(3, "Signal thread (requested events) started (dev=%ld)\n",
         *(uint64_t*)data% mic_engines_total);
 
     tracer.signal_requested();
@@ -130,8 +139,7 @@ void* Tracer::signal_requested() {
 
     OFFLOAD_OMPT_TRACE(3, "Request pipeline: %lx\n", pipeline);
 
-    //pthread_mutex_lock(&m_signal_thread_mutex);
-    while(m_signal_threads_busy) {
+    while(m_signal_req_thread_busy) {
 
         result = COIEventWait(
             MAX_OMPT_THREADS,              // Number of events to wait for
@@ -145,11 +153,18 @@ void* Tracer::signal_requested() {
         // event cancelation means that the runtime shuts down,
         // thus we destroy the signal thread right now.
         if(result == COI_EVENT_CANCELED) {
-            pthread_exit(NULL);
+            OFFLOAD_OMPT_TRACE(3, "Signal thread (request events) sleeps\n");
+            pthread_mutex_lock(&m_signal_req_thread_mutex);
+            m_signal_req_thread_busy = false;
+            pthread_cond_wait(&m_signal_req_thread_cond,
+                &m_signal_req_thread_mutex);
+            pthread_mutex_unlock(&m_signal_req_thread_mutex);
+            OFFLOAD_OMPT_TRACE(3, "Signal thread (request events) woke up\n");
+            continue;
         } else if(result == COI_SUCCESS) {
             OFFLOAD_OMPT_TRACE(4,
-                "Successfully waited for %d request events (signaled sink side)\n",
-                 num_signaled);
+               "Successfully waited for %d request events (signaled sink side)\n",
+                num_signaled);
         } else {
             COICHECK(result);
         }
@@ -214,7 +229,7 @@ void* Tracer::signal_truncated_helper(void* data) {
     Engine& engine = mic_engines[*(uint64_t*)data % mic_engines_total];
     Tracer& tracer = engine.get_tracer();
 
-    OFFLOAD_OMPT_TRACE(3, "Signal truncated thread started for device %ld\n",
+    OFFLOAD_OMPT_TRACE(3, "Signal thread (truncated events) started (dev=%ld)\n",
         *(uint64_t*)data% mic_engines_total);
 
     tracer.signal_truncated();
@@ -242,11 +257,10 @@ void* Tracer::signal_truncated() {
         &pipeline
     ));
     pthread_mutex_unlock(&m_mutex_pipeline);
- 
+
     OFFLOAD_OMPT_TRACE(3, "Truncate pipeline: %lx\n", pipeline);
 
-    //pthread_mutex_lock(&m_signal_thread_mutex);
-    while(m_signal_threads_busy) {
+    while(m_signal_tru_thread_busy) {
 
         result = COIEventWait(
             MAX_OMPT_THREADS,              // Number of events to wait for
@@ -260,10 +274,17 @@ void* Tracer::signal_truncated() {
         // event cancelation means that the runtime shuts down,
         // thus we destroy the signal thread.
         if(result == COI_EVENT_CANCELED) {
-            pthread_exit(NULL);
+            OFFLOAD_OMPT_TRACE(3, "Signal thread (truncated events) sleeps\n");
+            pthread_mutex_lock(&m_signal_tru_thread_mutex);
+            m_signal_tru_thread_busy = false;
+            pthread_cond_wait(&m_signal_tru_thread_cond,
+                &m_signal_tru_thread_mutex);
+            pthread_mutex_unlock(&m_signal_tru_thread_mutex);
+            OFFLOAD_OMPT_TRACE(3, "Signal thread (truncated events) woke up\n");
+            continue;
         } else if(result == COI_SUCCESS) {
             OFFLOAD_OMPT_TRACE(4, 
-                "Successfully waited for %d request events (signaled sink side)\n",
+                "Successfully waited for %d truncated events (signaled sink side)\n",
                  num_signaled);
         } else {
             COICHECK(result);
@@ -354,7 +375,7 @@ void Tracer::start() {
                 m_request_events,
                 1, &m_proc,
                 &m_request_event_buffer));
-    
+
         COICHECK(COI::BufferCreateFromMemory(
                 sizeof(COIEVENT) * MAX_OMPT_THREADS,
                 COI_BUFFER_NORMAL,
@@ -386,21 +407,35 @@ void Tracer::start() {
                 NULL, 0,
                 NULL));
 
-        } else {
-            m_paused = 0;
-            COIPIPELINE pipeline = get_pipeline();
-            COICHECK(COI::PipelineRunFunction(
-                pipeline, ompt_funcs[c_ompt_func_restart_tracing],
-                0, NULL, NULL,
-                0, NULL,
-                NULL, 0,
-                NULL, 0,
-                NULL));
+    } else {
+        m_paused = 0;
+        COIPIPELINE pipeline = get_pipeline();
+        COICHECK(COI::PipelineRunFunction(
+            pipeline, ompt_funcs[c_ompt_func_restart_tracing],
+            0, NULL, NULL,
+            0, NULL,
+            NULL, 0,
+            NULL, 0,
+            NULL));
+    }
 
-        }
+    // wake up signal threads
+    if(!m_signal_req_thread_busy) {
+        pthread_mutex_lock(&m_signal_req_thread_mutex);
+        m_signal_req_thread_busy = true;
+        pthread_cond_signal(&m_signal_req_thread_cond);
+        pthread_mutex_unlock(&m_signal_req_thread_mutex);
+    }
+    if(!m_signal_tru_thread_busy) {
+        pthread_mutex_lock(&m_signal_tru_thread_mutex);
+        m_signal_tru_thread_busy = true;
+        pthread_cond_signal(&m_signal_tru_thread_cond);
+        pthread_mutex_unlock(&m_signal_tru_thread_mutex);
+    }
 }
 
 void Tracer::stop(bool final) {
+
     OFFLOAD_OMPT_TRACE(3, "Stop OMPT Tracer\n");
     if (m_tracing) {
         m_tracing = 0;

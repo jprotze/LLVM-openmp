@@ -486,6 +486,7 @@ __kmp_GOMP_serialized_parallel(ident_t *loc, kmp_int32 gtid, void (*task)(void *
     if (ompt_enabled) {
         thr = __kmp_threads[gtid];
         ompt_task_info = OMPT_CUR_TASK_INFO(thr);
+        thr->th.ompt_thread_info.state == ompt_state_overhead;
 
         // parallel region callback
         if (ompt_callbacks.ompt_callback(ompt_callback_parallel_begin)) {
@@ -505,6 +506,7 @@ __kmp_GOMP_serialized_parallel(ident_t *loc, kmp_int32 gtid, void (*task)(void *
 #if OMPT_SUPPORT
     if (ompt_enabled) {
         int ompt_team_size;
+        ompt_task_info = OMPT_CUR_TASK_INFO(thr);
 
         // set up lightweight task
         ompt_lw_taskteam_t lwt;

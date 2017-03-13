@@ -16,10 +16,10 @@ addons_shortcuts:
     apt:
       sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.8', 'llvm-toolchain-precise-3.7' ]
       packages: [ 'clang-3.8', 'llvm-3.7-tools' ]
-#  addons_clang39: &clang39
-#    apt:
-#      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.9' ]
-#      packages: [ 'clang-3.9', 'libprotobuf-dev','protobuf-compiler' ]
+  addons_clang39: &clang39
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.9', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'clang-3.9', 'llvm-3.7-tools' ]
   addons_gcc47: &gcc47
     apt:
       sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
@@ -43,14 +43,18 @@ addons_shortcuts:
 
 matrix:
   include:
-    - os: linux
-      compiler: "clang-3.7"
-      env: CXX=clang++-3.7 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
-      addons: *clang37
+#    - os: linux
+#      compiler: "clang-3.7"
+#      env: CXX=clang++-3.7 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
+#      addons: *clang37
     - os: linux
       compiler: "clang-3.8"
       env: CXX=clang++-3.8 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
       addons: *clang38
+    - os: linux
+      compiler: "clang-3.9"
+      env: CXX=clang++-3.9 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
+      addons: *clang39
     - os: linux
       compiler: "gcc-6"
       env: CXX=g++-6 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
@@ -73,7 +77,9 @@ install:
  - mkdir travis && cd travis
  - echo $PATH
  - export PATH="${PATH}:${LITPATH}:${FILECHECKPATH}"
- - cmake .. -DLIBOMP_OMPT_SUPPORT=on 
+ - cmake .. -DLIBOMP_OMPT_SUPPORT=on -DLIBOMP_TEST_CFLAGS="-g -fno-omit-frame-pointer" -DCMAKE_BUILD_TYPE=RelWithDebInfo
  - make -j all 
+
+script:
  - python ${LITPATH}/lit.py -v runtime/test/ompt
  

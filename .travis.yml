@@ -1,57 +1,79 @@
-language: cpp
+language: c
+
 sudo: false
+
+# Save common build configurations as shortcuts, so we can reference them later.
+addons_shortcuts:
+  addons_clang35: &clang35
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.5' ]
+      packages: [ 'clang-3.5', 'llvm-3.5-tools' ]
+  addons_clang37: &clang37
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'clang-3.7', 'llvm-3.7-tools' ]
+  addons_clang38: &clang38
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.8', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'clang-3.8', 'llvm-3.7-tools' ]
+#  addons_clang39: &clang39
+#    apt:
+#      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.9' ]
+#      packages: [ 'clang-3.9', 'libprotobuf-dev','protobuf-compiler' ]
+  addons_gcc47: &gcc47
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'g++-4.7', 'gcc-4.7', 'llvm-3.7-tools' ]
+  addons_gcc48: &gcc48
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'g++-4.8', 'gcc-4.8', 'llvm-3.7-tools' ]
+  addons_gcc49: &gcc49
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'g++-4.9', 'gcc-4.9', 'llvm-3.7-tools' ]
+  addons_gcc5: &gcc5
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'g++-5', 'gcc-5', 'llvm-3.7-tools' ]
+  addons_gcc6: &gcc6
+    apt:
+      sources: [ 'ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.7' ]
+      packages: [ 'g++-6', 'gcc-6', 'llvm-3.7-tools' ]
 
 matrix:
   include:
-    - os: Linux
-      dist: trusty
-      compiler: gcc
-      addons:
-        apt:
-          sources:
-            - llvm-toolchain-trusty-3.9
-          packages:
-            - cmake
-            - gcc-4.8
-            - g++-4.8
-            - llvm-3.9-tools
-      before_script: 
-        - export CC=$(which gcc-4.8) ; export CXX=$(which g++-4.8)
-
-    - os: Linux
-      dist: trusty
-      compiler: clang
-      addons:
-        apt:
-          sources:
-            - llvm-toolchain-trusty-3.9
-          packages:
-            - cmake
-            - clang-3.9
-            - llvm-3.9-tools
-      before_script: 
-        - export CC=$(which clang-3.9) ; export CXX=$(which clang++-3.9)
-        - dpkg -L clang-3.9
-        - dpkg -L llvm-3.9-tools
-
-#    - os: osx
-#      osx_image: xcode8.2
-#      compiler: clang
-#      before_install: 
-#        - brew update --quiet >& /dev/null
-#        - for pkg in cmake llvm clang-omp; do
-#            if brew list -1 | grep -q "^${pkg}\$"; then
-#              brew outdated $pkg || brew upgrade $pkg;
-#            else
-#              brew install $pkg;
-#            fi
-#          done
-#      before_script: 
-#        - export CC=$(clang-omp) ; export CXX=$(which clang++-omp)
+    - os: linux
+      compiler: "clang-3.7"
+      env: CXX=clang++-3.7 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
+      addons: *clang37
+    - os: linux
+      compiler: "clang-3.8"
+      env: CXX=clang++-3.8 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
+      addons: *clang38
+    - os: linux
+      compiler: "gcc-6"
+      env: CXX=g++-6 LITPATH=/usr/lib/llvm-3.7/build/utils/lit/ FILECHECKPATH=/usr/lib/llvm-3.7/bin/
+      addons: *gcc6
 
 
+before_install:
+ - echo ${CXX}
+ - if [[ $(uname -s) == 'Darwin' ]]; then
+     for pkg in cmake llvm clang-omp; do
+       if brew list -1 | grep -q "^${pkg}\$"; then
+         brew outdated $pkg || brew upgrade $pkg;
+       else
+         brew install $pkg;
+       fi
+     done
+   fi
 
-script:
-  - mkdir travis && cd travis
-  - cmake .. -DLIBOMP_OMPT_SUPPORT=on -DLIBOMP_LLVM_LIT_EXECUTABLE=/usr/lib/llvm-3.9/build/utils/lit/lit.py -DFILECHECK_EXECUTABLE=/usr/lib/llvm-3.9/bin/FileCheck   && make all check-libomp
-
+install:
+ - mkdir travis && cd travis
+ - echo $PATH
+ - export PATH="${PATH}:${LITPATH}:${FILECHECKPATH}"
+ - cmake .. -DLIBOMP_OMPT_SUPPORT=on 
+ - make -j all 
+ - python ${LITPATH}/lit.py -v runtime/test/ompt
+ 

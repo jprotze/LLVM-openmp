@@ -1,19 +1,57 @@
 language: cpp
-dist: trusty
 sudo: false
 
-compiler: clang
+matrix:
+  include:
+    - os: Linux
+      dist: trusty
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-3.9
+          packages:
+            - cmake
+            - gcc-4.8
+            - g++-4.8
+            - llvm-3.9-tools
+      before_script: 
+        - export CC=$(which gcc-4.8) ; export CXX=$(which g++-4.8)
 
-addons:
-  apt:
-    sources:
-      - llvm-toolchain-trusty-3.9
-    packages:
-      - cmake
-      - clang-3.9
-      - llvm-3.9-tools
+    - os: Linux
+      dist: trusty
+      compiler: clang
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-3.9
+          packages:
+            - cmake
+            - clang-3.9
+            - llvm-3.9-tools
+      before_script: 
+        - export CC=$(which clang-3.9) ; export CXX=$(which clang++-3.9)
+        - dpkg -L clang-3.9
+        - dpkg -L llvm-3.9-tools
+
+#    - os: osx
+#      osx_image: xcode8.2
+#      compiler: clang
+#      before_install: 
+#        - brew update --quiet >& /dev/null
+#        - for pkg in cmake llvm clang-omp; do
+#            if brew list -1 | grep -q "^${pkg}\$"; then
+#              brew outdated $pkg || brew upgrade $pkg;
+#            else
+#              brew install $pkg;
+#            fi
+#          done
+#      before_script: 
+#        - export CC=$(clang-omp) ; export CXX=$(which clang++-omp)
+
+
 
 script:
   - mkdir travis && cd travis
-  - CC=$(which clang-3.9) CXX=$(which clang++-3.9) cmake .. -DLIBOMP_OMPT_SUPPORT=on -DLIBOMP_LLVM_LIT_EXECUTABLE=/usr/lib/llvm-3.9/build/utils/lit/lit.py -DFILECHECK_EXECUTABLE=/usr/lib/llvm-3.9/bin/FileCheck   && make all check-libomp
+  - cmake .. -DLIBOMP_OMPT_SUPPORT=on -DLIBOMP_LLVM_LIT_EXECUTABLE=/usr/lib/llvm-3.9/build/utils/lit/lit.py -DFILECHECK_EXECUTABLE=/usr/lib/llvm-3.9/bin/FileCheck   && make all check-libomp
 

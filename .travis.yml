@@ -1,0 +1,19 @@
+language: cpp
+dist: trusty
+sudo: false
+
+compiler: clang
+
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-trusty-3.9
+    packages:
+      - cmake
+      - clang-3.9
+      - llvm-3.9-tools
+
+script:
+  - mkdir travis && cd travis
+  - CC=$(which clang-3.9) CXX=$(which clang++-3.9) cmake .. -DLIBOMP_OMPT_SUPPORT=on -DLIBOMP_LLVM_LIT_EXECUTABLE=/usr/lib/llvm-3.9/build/utils/lit/lit.py -DFILECHECK_EXECUTABLE=/usr/lib/llvm-3.9/bin/FileCheck   && make all check-libomp
+
